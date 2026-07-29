@@ -12,9 +12,30 @@
     <!-- HTML to Image converter -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
    <script>
+<script>
   function handleCredentialResponse(response) {
     console.log("Encoded JWT ID token: " + response.credential);
-    // This token will eventually be sent to your backend (like Supabase) for verification!
+    
+    // 1. Hide the Google Sign-In button
+    document.querySelector('.g_id_signin').style.display = 'none';
+    
+    // 2. Show your Disconnect button
+    document.getElementById('logout-btn').style.display = 'inline-block';
+    
+    // 3. Tell your app a user is logged in
+    currentUser = "Google User"; 
+  }
+
+  // You will also need this function so the Disconnect button works!
+  function logout() {
+    // Hide the Disconnect button
+    document.getElementById('logout-btn').style.display = 'none';
+    
+    // Show the Google Sign-In button again
+    document.querySelector('.g_id_signin').style.display = 'block';
+    
+    // Clear the active user
+    currentUser = null;
   }
 </script>
     <style>
