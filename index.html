@@ -2,22 +2,6 @@
 <html lang="en">
 <head>
    <script src="https://accounts.google.com/gsi/client" async></script>
- <div id="g_id_onload"
-     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
-     data-context="signin"
-     data-ux_mode="popup"
-     data-callback="handleCredentialResponse"
-     data-auto_prompt="false">
-</div>
-
-<div class="g_id_signin"
-     data-type="standard"
-     data-shape="rectangular"
-     data-theme="outline"
-     data-text="signin_with"
-     data-size="large"
-     data-logo_alignment="left">
-</div>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ExSpaceTrash.com • Official Registry of Space Trash</title>
@@ -85,9 +69,22 @@
             </div>
             
             <div class="hud-panel auth-panel">
-                <button id="login-btn" class="google-btn" onclick="loginWithGoogle()">
-                    <img src="https://www.google.com/favicon.ico" width="16" alt="G"> Sign In
-                </button>
+                <div id="g_id_onload"
+     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
+     data-context="signin"
+     data-ux_mode="popup"
+     data-callback="handleCredentialResponse"
+     data-auto_prompt="false">
+</div>
+
+<div class="g_id_signin"
+     data-type="standard"
+     data-shape="rectangular"
+     data-theme="outline"
+     data-text="signin_with"
+     data-size="large"
+     data-logo_alignment="left">
+</div>
                 <button id="logout-btn" style="display:none; font-size: 0.7rem; padding: 4px; margin-top: 5px; border:none; border-bottom: 1px solid #ff5577; color: #ff5577; width: auto;" onclick="logout()">Disconnect</button>
             </div>
         </div>
