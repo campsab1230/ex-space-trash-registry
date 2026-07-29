@@ -156,8 +156,8 @@
 
     <script>
         // --- 1. CONFIGURATION ---
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE'; 
-        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; 
+        const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co/rest/v1/'; 
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI'; 
         const _supabase = (SUPABASE_URL.indexOf('YOUR_') === -1) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
         let currentUser = null;
 
