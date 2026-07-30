@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ExSpaceTrash.com • Official Registry of Space Trash</title>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
     <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- Supabase Client JS -->
@@ -283,31 +284,56 @@
         // pre-vetted list of confirmed decommissioned debris IDs pulled once from
         // space-track.org, so claims are stable across sessions and don't
         // accidentally reference something that isn't actually junk.
-        function getRandomNoradIds(count, max) {
-            const ids = new Set();
-            while (ids.size < count) ids.add(Math.floor(20000 + Math.random() * max));
-            return Array.from(ids);
-        }
+        // NOTE: These NORAD IDs are randomly generated placeholders...
+async function initLiveDebrisField() {
+  try {
+    const res = await fetch('/api/get-celestrak-debris');
+    const debrisList = await res.json();
 
-        const activeNoradPool = getRandomNoradIds(45, 18452);
-        activeNoradPool.forEach((noradId) => {
-            const geo = new THREE.BufferGeometry();
-            const vertices = [];
-            for (let i = 0; i < 12; i++) vertices.push((Math.random()-0.5)*0.15, (Math.random()-0.5)*0.15, (Math.random()-0.5)*0.15);
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geo.computeVertexNormals();
+    debrisList.forEach((data) => {
+      const geo = new THREE.BufferGeometry();
+      const vertices = [];
+      for (let i = 0; i < 12; i++) {
+        vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
+      }
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geo.computeVertexNormals();
 
-            const mesh = new THREE.Mesh(geo, metalMaterial);
-            mesh.userData = {
-                noradId: String(noradId),
-                type: debrisTypes[Math.floor(Math.random() * debrisTypes.length)],
-                stat: debrisStats[Math.floor(Math.random() * debrisStats.length)],
-                angle: Math.random() * Math.PI * 2,
-                orbitRadius: 2.1 + (Math.random() * 0.7)
-            };
-            scene.add(mesh);
-            trashPieces.push(mesh);
-        });
+      const mesh = new THREE.Mesh(geo, metalMaterial);
+
+      // Convert Latitude/Longitude/Altitude into 3D Sphere Coordinates
+      const radius = 1.5 + (data.altKm / 6371);
+      const phi = (90 - data.lat) * (Math.PI / 180);
+      const theta = (data.lng + 180) * (Math.PI / 180);
+
+      mesh.position.x = -(radius * Math.sin(phi) * Math.cos(theta));
+      mesh.position.z = (radius * Math.sin(phi) * Math.sin(theta));
+      mesh.position.y = (radius * Math.cos(phi));
+
+      mesh.userData = {
+        noradId: data.noradId,
+        type: data.officialName || "Decommissioned Payload",
+        stat: `Altitude: ${data.altKm} km | Inclination: ${data.inclination}°`,
+        angle: Math.random() * Math.PI * 2,
+        orbitRadius: radius,
+        isClaimed: data.isClaimed,
+        claimedBy: data.claimedBy
+      };
+
+      if (data.isClaimed) {
+        mesh.material = new THREE.MeshStandardMaterial({ color: 0xff5577, roughness: 0.5 });
+      }
+
+      scene.add(mesh);
+      trashPieces.push(mesh);
+    });
+  } catch (err) {
+    console.error("Failed to load CelesTrak objects:", err);
+  }
+}
+
+// Call on startup
+initLiveDebrisField();
 
         // --- 5. INTERACTION & MODALS ---
         function inspectDebris(data) {
