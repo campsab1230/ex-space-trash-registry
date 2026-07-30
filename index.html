@@ -79,7 +79,16 @@
                 <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
                 <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk. Claim it. Name it. Done.</p>
             </div>
-
+<!-- Orbit Selector Dropdown -->
+<div style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
+  <label for="orbit-select" style="font-size: 0.85rem; color: #8ab4f8; font-weight: bold;">ORBIT SECTOR:</label>
+  <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)" style="background: #0a0f18; color: #4ef2d2; border: 1px solid #4ef2d2; padding: 6px 10px; font-family: inherit; font-size: 0.85rem; border-radius: 4px; cursor: pointer; outline: none;">
+    <option value="ALL">ALL ORBITS (ALL SECTORS)</option>
+    <option value="LEO">LOW EARTH ORBIT (LEO • &lt; 2,000 km)</option>
+    <option value="MEO">MEDIUM EARTH ORBIT (MEO • 2,000–35,000 km)</option>
+    <option value="GEO">GEOSTATIONARY (GEO • &gt; 35,000 km)</option>
+  </select>
+</div>
             <div class="hud-panel auth-panel">
                 <div id="g_id_onload"
      data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
@@ -302,7 +311,7 @@ async function initLiveDebrisField() {
       const mesh = new THREE.Mesh(geo, metalMaterial);
 
       // Convert Latitude/Longitude/Altitude into 3D Sphere Coordinates
-      const radius = 1.5 + (data.altKm / 6371);
+      const radius = 1.5 + Math.min(data.altKm / 4000, 4.0);
       const phi = (90 - data.lat) * (Math.PI / 180);
       const theta = (data.lng + 180) * (Math.PI / 180);
 
@@ -313,9 +322,10 @@ async function initLiveDebrisField() {
       mesh.userData = {
         noradId: data.noradId,
         type: data.officialName || "Decommissioned Payload",
-        stat: `Altitude: ${data.altKm} km | Inclination: ${data.inclination}°`,
-        angle: Math.random() * Math.PI * 2,
-        orbitRadius: radius,
+        stat: `${data.tierLabel || 'Debris'} | Alt: ${data.altKm.toLocaleString()} km`,
+        price: data.price || 1.99,
+        regime: data.regime || "LEO",
+        tierLabel: data.tierLabel,
         isClaimed: data.isClaimed,
         claimedBy: data.claimedBy
       };
@@ -329,6 +339,30 @@ async function initLiveDebrisField() {
     });
   } catch (err) {
     console.error("Failed to load CelesTrak objects:", err);
+  }
+}
+
+/**
+ * Filters visible 3D space debris objects based on the selected orbit sector dropdown.
+ */
+function filterDebrisByOrbit(selectedRegime) {
+  closeHud();
+
+  trashPieces.forEach((mesh) => {
+    if (selectedRegime === 'ALL' || mesh.userData.regime === selectedRegime) {
+      mesh.visible = true;
+    } else {
+      mesh.visible = false;
+    }
+  });
+
+  // Adjust camera distance for high orbits
+  if (selectedRegime === 'GEO') {
+    camera.position.z = 8.0;
+  } else if (selectedRegime === 'LEO') {
+    camera.position.z = 4.8;
+  } else {
+    camera.position.z = 5.5;
   }
 }
 
@@ -357,7 +391,7 @@ initLiveDebrisField();
                 document.getElementById('hud-status').innerText = "READY FOR ASSIGNMENT";
                 document.getElementById('hud-status').className = "";
                 document.getElementById('hud-assigned').innerText = "NONE";
-                btn.innerText = "CLAIM THIS TRASH // $1.99";
+               btn.innerText = `CLAIM THIS TRASH // $${data.price.toFixed(2)}`;
                 btn.disabled = false;
                 btn.style.background = "#00f0ff";
             }
@@ -414,16 +448,17 @@ initLiveDebrisField();
             btn.innerText = "REDIRECTING...";
 
             try {
-                const res = await fetch(`${API_BASE}/api/create-checkout`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        noradId: selectedDebris.noradId,
-                        type: selectedDebris.type,
-                        stat: selectedDebris.stat,
-                        exName: exName
-                    })
-                });
+             const res = await fetch(`${API_BASE}/api/create-checkout`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    noradId: selectedDebris.noradId,
+    type: selectedDebris.type,
+    stat: selectedDebris.stat,
+    exName: exName,
+    price: selectedDebris.price // Pass dynamic price to Stripe
+  })
+});
                 if (!res.ok) throw new Error('Checkout session creation failed');
                 const { url } = await res.json();
                 window.location.href = url; // Stripe-hosted checkout page
