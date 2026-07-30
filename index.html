@@ -14,26 +14,14 @@
    <script>
   function handleCredentialResponse(response) {
     console.log("Encoded JWT ID token: " + response.credential);
-    
-    // 1. Hide the Google Sign-In button
     document.querySelector('.g_id_signin').style.display = 'none';
-    
-    // 2. Show your Disconnect button
     document.getElementById('logout-btn').style.display = 'inline-block';
-    
-    // 3. Tell your app a user is logged in
-    currentUser = "Google User"; 
+    currentUser = "Google User";
   }
 
-  // You will also need this function so the Disconnect button works!
   function logout() {
-    // Hide the Disconnect button
     document.getElementById('logout-btn').style.display = 'none';
-    
-    // Show the Google Sign-In button again
     document.querySelector('.g_id_signin').style.display = 'block';
-    
-    // Clear the active user
     currentUser = null;
   }
 </script>
@@ -43,30 +31,33 @@
         body { margin: 0; overflow: hidden; background: #020208; font-family: 'Share Tech Mono', monospace; color: #4ef2d2; touch-action: none; }
         #three-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
-        
+
         .hud-panel { pointer-events: auto; background: rgba(4, 10, 20, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(78, 242, 210, 0.3); padding: 12px 15px; border-radius: 6px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); }
-        
+
         .top-bar { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none; }
         .header-panel { max-width: 480px; pointer-events: auto; }
         .auth-panel { pointer-events: auto; text-align: right; }
-        
+
         .ticker-panel { width: 100%; max-width: 750px; margin: 0 auto; text-align: center; font-size: 0.9rem; overflow: hidden; white-space: nowrap; border-color: #555; background: rgba(10, 10, 15, 0.9); }
-        
+
         h1 { font-size: 1.5rem; margin: 0 0 4px 0; letter-spacing: 1px; color: #fff; text-shadow: 0 0 10px #4ef2d2; }
         p { margin: 3px 0; color: #8ab4f8; font-size: 0.9rem; }
         .highlight { color: #ff5577; text-shadow: 0 0 8px #ff5577; }
-        
+
         #hud-panel { display: none; position: fixed; top: 80px; right: 20px; width: 340px; background: rgba(10, 15, 25, 0.95); border: 1px solid #00f0ff; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3); color: #00f0ff; font-family: monospace; padding: 16px; border-radius: 8px; z-index: 50; }
         .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 25px; background: #060b16; border: 2px solid #4ef2d2; width: 92%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 40px rgba(78, 242, 210, 0.3); color: #e0e0e0; z-index: 100; border-radius: 6px; }
 
         button { background: transparent; color: #4ef2d2; padding: 12px 18px; border: 1px solid #4ef2d2; cursor: pointer; font-family: inherit; font-size: 0.95rem; transition: all 0.2s; margin-top: 12px; width: 100%; border-radius: 4px; font-weight: bold; }
         button:hover { background: rgba(78, 242, 210, 0.2); box-shadow: 0 0 15px #4ef2d2; }
         button:disabled { border-color: #555; color: #777; cursor: not-allowed; box-shadow: none; background: transparent; }
-        
+
         .close-btn { border-color: #ff5577; color: #ff5577; margin-top: 8px; }
         .close-btn:hover { background: rgba(255, 85, 119, 0.2); box-shadow: 0 0 15px #ff5577; }
-        
+
         .google-btn { background: #fff; color: #000; border: none; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 15px; font-size: 0.85rem; width: auto; margin-top: 0; box-shadow: 0 2px 10px rgba(255,255,255,0.2); }
+
+        input.name-input { width: 100%; background: #0a0f18; border: 1px solid #4ef2d2; color: #efc84e; font-family: inherit; font-size: 1.1rem; padding: 10px; border-radius: 4px; text-transform: uppercase; margin-top: 10px; }
+        input.name-input:focus { outline: none; box-shadow: 0 0 10px rgba(78,242,210,0.5); }
 
         @media (max-width: 768px) {
             #ui { padding: 10px; }
@@ -79,7 +70,7 @@
 </head>
 <body>
     <div id="three-container"></div>
-    
+
     <div id="ui">
         <div class="top-bar">
             <div class="hud-panel header-panel">
@@ -87,7 +78,7 @@
                 <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
                 <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk. Claim it. Name it. Done.</p>
             </div>
-            
+
             <div class="hud-panel auth-panel">
                 <div id="g_id_onload"
      data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
@@ -120,7 +111,7 @@
         <span style="font-weight: bold; font-size: 14px; letter-spacing: 1px;">TELEMETRY LOCK</span>
         <button onclick="closeHud()" style="background: none; border: none; color: #00f0ff; font-size: 18px; cursor: pointer; padding: 0; width: auto;">✕</button>
       </div>
-      
+
       <div style="font-size: 12px; line-height: 1.8; color: #d0f0ff;">
         <div><strong>NORAD ID:</strong> <span id="hud-norad" style="color:#fff;">--</span></div>
         <div><strong>CLASSIFICATION:</strong> <span id="hud-type" style="color:#ff5577;">--</span></div>
@@ -138,10 +129,16 @@
     <div id="certificate" class="modal">
         <h2 style="color:#ff5577; letter-spacing: 2px; margin: 0 0 10px 0;">DEBRIS ENGAGED</h2>
         <p style="color: #8ab4f8; font-size: 1rem; font-style: italic;">"Because sending a glitter bomb is temporary."</p>
+
+        <div style="text-align:left; margin: 15px 0;">
+            <label style="font-size: 0.85rem; color: #8ab4f8;">WHO DESERVES THIS SPACE GARBAGE?</label>
+            <input type="text" id="ex-name-input" class="name-input" maxlength="30" placeholder="EX'S NAME" />
+        </div>
+
         <div id="cert-text" style="line-height: 1.6; font-size: 0.95rem; margin: 15px 0; text-align: left; font-family: monospace; background: rgba(0,0,0,0.5); padding: 15px; border-left: 3px solid #4ef2d2;"></div>
-        
+
         <button id="preview-btn" onclick="generatePreview()" style="border-color: #00f0ff; color: #00f0ff; margin-bottom: 10px;">👀 PREVIEW SOCIAL CERTIFICATE</button>
-        <button id="checkout-button" style="border-color: #efc84e; color: #efc84e;" onclick="window.location.href='https://buy.stripe.com/00w14oeWhbX51HB6BzeQM02'">CONFIRM PAYMENT ($1.99)</button>
+        <button id="checkout-button" style="border-color: #efc84e; color: #efc84e;" onclick="startCheckout()">CONFIRM PAYMENT ($1.99)</button>
         <button class="close-btn" onclick="document.getElementById('certificate').style.display='none'">ABORT</button>
     </div>
 
@@ -149,10 +146,9 @@
     <div id="preview-modal" class="modal" style="max-width: 450px; text-align: center; border-color: #00f0ff; z-index: 150;">
         <h3 style="color: #00f0ff; margin-top: 0; letter-spacing: 1px;">CERTIFICATE PREVIEW</h3>
         <p style="font-size: 0.8rem; color: #8ab4f8; margin-bottom: 15px;">Your official export will be high-resolution and watermark-free.</p>
-        
-        <div id="preview-loading" style="color: #fff; margin: 20px 0; font-size: 1.2rem; animation: blink 1.5s infinite;">GENERATING PREVIEW...</div>
-        
-        <!-- Watermark Container -->
+
+        <div id="preview-loading" style="color: #fff; margin: 20px 0; font-size: 1.2rem;">GENERATING PREVIEW...</div>
+
         <div id="preview-image-container" style="display: none; position: relative; width: 100%; border: 1px solid #333; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow: hidden;">
             <img id="preview-image-result" style="width: 100%; height: auto; display: block;" alt="Certificate Preview" />
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 85, 119, 0.1); display: flex; align-items: center; justify-content: center; pointer-events: none;">
@@ -167,19 +163,25 @@
     <!-- Success Modal -->
     <div id="success-modal" class="modal" style="max-width: 500px; text-align: center; border-color: #00ff00;">
         <h2 style="color:#00ff00; letter-spacing: 2px; margin: 0 0 15px 0;">CONGRATULATIONS.</h2>
-        <p style="color: #fff; font-size: 1.1rem; margin-bottom: 10px;"><strong id="success-name" style="color:#efc84e;">YOUR EX</strong> now has a piece of space garbage with their name on it.</p>
+        <p style="color: #fff; font-size: 1.1rem; margin-bottom: 10px;"><strong id="success-name" style="color:#efc84e;"></strong> now has a piece of space garbage with their name on it.</p>
         <p style="color: #8ab4f8; font-size: 0.9rem; margin-bottom: 25px;">Humanity has officially progressed backwards.</p>
-        
+
         <button id="download-cert-btn" style="background: #efc84e; color: #000; border: none; padding: 15px; font-size: 1.1rem; box-shadow: 0 0 15px #efc84e; margin-bottom: 15px;">
             📸 DOWNLOAD CERTIFICATE FOR SOCIALS
         </button>
         <button class="close-btn" onclick="document.getElementById('success-modal').style.display='none'">RETURN TO RADAR</button>
     </div>
 
+    <!-- Verifying payment modal -->
+    <div id="verifying-modal" class="modal" style="max-width: 400px; text-align:center; border-color:#efc84e;">
+        <h3 style="color:#efc84e;">VERIFYING PAYMENT...</h3>
+        <p style="color:#8ab4f8; font-size:0.9rem;">Confirming your transaction with Stripe before locking in the claim.</p>
+    </div>
+
     <!-- Hidden Certificate Template for Social Media Export -->
     <div id="export-cert" style="position: fixed; left: -9999px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1;">
         <h1 style="color: #ff5577; margin-bottom: 10px; font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px #ff5577;">OFFICIAL SPACE TRASH ASSIGNMENT</h1>
-        
+
         <div style="margin: 30px 0; padding: 30px; border: 2px dashed #555; background: rgba(10, 15, 25, 0.8);">
             <p style="font-size: 1.4rem; color: #ccc;">After extensive review, NORAD object <span id="export-id" style="color: #4ef2d2;">--</span></p>
             <p style="font-size: 1.4rem; color: #ccc;">has officially been associated with</p>
@@ -187,7 +189,7 @@
             <p style="font-size: 1.4rem; color: #ccc;">for all eternity.*</p>
             <p style="font-size: 0.9rem; color: #888; margin-top: 15px;">*or until the Sun explodes.</p>
         </div>
-        
+
         <div style="text-align: left; background: rgba(0,0,0,0.8); padding: 25px; border-left: 5px solid #ff5577;">
             <p style="margin: 10px 0; font-size: 1.5rem;"><strong>CLASSIFICATION:</strong> <span id="export-type" style="color: #fff;">--</span></p>
             <p style="margin: 10px 0; font-size: 1.2rem; color: #8ab4f8; font-style: italic;" id="export-stat">--</p>
@@ -196,15 +198,17 @@
 
     <script>
         // --- 1. CONFIGURATION ---
-        const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co/rest/v1/'; 
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI'; 
+        const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
         const _supabase = (SUPABASE_URL.indexOf('YOUR_') === -1) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        // Serverless endpoints — see /api/create-checkout.js and /api/verify-session.js
+        const API_BASE = ''; // same-origin, e.g. deployed on Vercel alongside this file
         let currentUser = null;
 
         // --- 2. COMEDY ARRAYS ---
         const debrisTypes = [
-            "Something NASA insists wasn't important", "Probably from Russia", 
-            "Definitely shouldn't still be up there", "Nobody remembers launching this", 
+            "Something NASA insists wasn't important", "Probably from Russia",
+            "Definitely shouldn't still be up there", "Nobody remembers launching this",
             "Frozen Coolant Leak", "Detached Rocket Bolt", "Dead Weather Satellite",
             "Unidentified Metallic Slag"
         ];
@@ -218,25 +222,40 @@
             "Currently completely lost in space. Relatable."
         ];
 
-        // --- 3. LIVE TICKER LOGIC ---
-        const MOCK_CLAIMS = {
-            '28412': { exName: 'BRAD', type: 'Detached Rocket Bolt' },
-            '31099': { exName: 'KAREN', type: 'Dead Weather Satellite' },
-            '35420': { exName: 'JOSH', type: 'Frozen Coolant Leak' }
-        };
-        let liveGlobalRegistry = { ...MOCK_CLAIMS };
+        // --- 3. LIVE REGISTRY (real data, fetched from Supabase) ---
+        let liveGlobalRegistry = {};
         let selectedDebris = null;
 
-        function updateTickerFeed() {
-            const names = ["BRAD", "KAREN", "JOSH", "CHAD", "ASHLEY", "BRITTANY", "DAVID", "SARAH"];
-            const randomName = names[Math.floor(Math.random() * names.length)];
-            const randomType = debrisTypes[Math.floor(Math.random() * debrisTypes.length)].toLowerCase();
-            
-            document.getElementById('live-ticker').innerHTML = `
-                🚀 <span class="highlight">${randomName}</span> was just assigned a ${randomType}.
-            `;
+        async function loadRegistry() {
+            if (!_supabase) return;
+            try {
+                const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name');
+                if (error) throw error;
+                liveGlobalRegistry = {};
+                (data || []).forEach(row => {
+                    liveGlobalRegistry[row.norad_id] = { exName: row.dedication_name, type: row.debris_name };
+                });
+            } catch (e) {
+                console.error('Failed to load registry', e);
+            }
         }
-        setInterval(updateTickerFeed, 4500);
+
+        function updateTickerFeed() {
+            const entries = Object.values(liveGlobalRegistry);
+            if (entries.length === 0) {
+                document.getElementById('live-ticker').innerHTML = `<span class="highlight">AWAITING FIRST CLAIM...</span>`;
+                return;
+            }
+            const pick = entries[Math.floor(Math.random() * entries.length)];
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'highlight';
+            nameSpan.textContent = pick.exName;
+            const ticker = document.getElementById('live-ticker');
+            ticker.textContent = '🚀 ';
+            ticker.appendChild(nameSpan);
+            ticker.appendChild(document.createTextNode(` was assigned a ${pick.type.toLowerCase()}.`));
+        }
+        setInterval(updateTickerFeed, 6000);
 
         // --- 4. 3D RENDER ENGINE ---
         const raycaster = new THREE.Raycaster();
@@ -259,6 +278,11 @@
         const trashPieces = [];
         const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
 
+        // NOTE: These NORAD IDs are randomly generated placeholders, not verified
+        // real catalog entries. Before launch, replace this pool with a fixed,
+        // pre-vetted list of confirmed decommissioned debris IDs pulled once from
+        // space-track.org, so claims are stable across sessions and don't
+        // accidentally reference something that isn't actually junk.
         function getRandomNoradIds(count, max) {
             const ids = new Set();
             while (ids.size < count) ids.add(Math.floor(20000 + Math.random() * max));
@@ -293,7 +317,7 @@
             document.getElementById('hud-norad').innerText = `#${data.noradId}`;
             document.getElementById('hud-type').innerText = data.type.toUpperCase();
             document.getElementById('hud-stat').innerText = `"${data.stat}"`;
-            
+
             const btn = document.getElementById('hud-checkout-btn');
 
             if (isClaimed) {
@@ -316,42 +340,92 @@
 
         function closeHud() { document.getElementById('hud-panel').style.display = 'none'; }
 
+        function getSanitizedExName() {
+            const raw = document.getElementById('ex-name-input').value.trim();
+            // Strip anything that isn't a letter, number, space, or basic punctuation.
+            const cleaned = raw.replace(/[^a-zA-Z0-9 .'-]/g, '').slice(0, 30);
+            return cleaned.length ? cleaned.toUpperCase() : "UNKNOWN";
+        }
+
+        function renderCertText(exName) {
+            const container = document.getElementById('cert-text');
+            container.innerHTML = ''; // clear safely
+
+            const line1 = document.createElement('div');
+            line1.innerHTML = `NORAD ID: <span class="highlight">#${selectedDebris.noradId}</span>`;
+            container.appendChild(line1);
+
+            const line2 = document.createElement('div');
+            line2.style.marginTop = '10px';
+            line2.appendChild(document.createTextNode('This piece of trash will be officially and permanently associated with '));
+            const strong = document.createElement('strong');
+            strong.style.color = '#efc84e';
+            strong.style.fontSize = '1.2rem';
+            strong.textContent = exName; // textContent — never innerHTML — for user input
+            line2.appendChild(strong);
+            line2.appendChild(document.createTextNode('.'));
+            container.appendChild(line2);
+        }
+
         function openCertificateModal() {
             if (!selectedDebris) return;
             closeHud();
-            const exName = prompt(`TARGET: ${selectedDebris.type}\nWho deserves this space garbage? (Enter Name):`, "EX'S NAME") || "UNKNOWN";
-
-            sessionStorage.setItem('pending_purchase', JSON.stringify({
-                noradId: selectedDebris.noradId,
-                type: selectedDebris.type,
-                stat: selectedDebris.stat,
-                exName: exName.toUpperCase()
-            }));
-
-            document.getElementById('cert-text').innerHTML = `
-                NORAD ID: <span class="highlight">#${selectedDebris.noradId}</span><br><br>
-                This piece of trash will be officially and permanently associated with <strong style="color:#efc84e; font-size:1.2rem;">${exName.toUpperCase()}</strong>.
-            `;
+            document.getElementById('ex-name-input').value = '';
+            document.getElementById('cert-text').innerHTML = '';
             document.getElementById('certificate').style.display = 'block';
-            document.getElementById('checkout-button').onclick = () => { window.location.href = "https://buy.stripe.com/00w14oeWhbX51HB6BzeQM02"; };
         }
 
-        // --- 6. PREVIEW & EXPORT LOGIC ---
+        document.getElementById('ex-name-input').addEventListener('input', () => {
+            if (selectedDebris) renderCertText(getSanitizedExName());
+        });
+
+        // --- 6. CHECKOUT: create a real Stripe Checkout Session server-side ---
+        async function startCheckout() {
+            if (!selectedDebris) return;
+            const exName = getSanitizedExName();
+            const btn = document.getElementById('checkout-button');
+            btn.disabled = true;
+            btn.innerText = "REDIRECTING...";
+
+            try {
+                const res = await fetch(`${API_BASE}/api/create-checkout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        noradId: selectedDebris.noradId,
+                        type: selectedDebris.type,
+                        stat: selectedDebris.stat,
+                        exName: exName
+                    })
+                });
+                if (!res.ok) throw new Error('Checkout session creation failed');
+                const { url } = await res.json();
+                window.location.href = url; // Stripe-hosted checkout page
+            } catch (err) {
+                console.error(err);
+                alert('Something went wrong starting checkout. Please try again.');
+                btn.disabled = false;
+                btn.innerText = "CONFIRM PAYMENT ($1.99)";
+            }
+        }
+
+        // --- 7. PREVIEW & EXPORT LOGIC ---
         async function generatePreview() {
+            if (!selectedDebris) return;
+            const exName = getSanitizedExName();
             const previewModal = document.getElementById('preview-modal');
             const loadingText = document.getElementById('preview-loading');
             const imgContainer = document.getElementById('preview-image-container');
             const imgResult = document.getElementById('preview-image-result');
-            
+
             previewModal.style.display = 'block';
             loadingText.style.display = 'block';
             imgContainer.style.display = 'none';
 
-            const pending = JSON.parse(sessionStorage.getItem('pending_purchase') || '{}');
-            document.getElementById('export-ex-name').innerText = pending.exName;
-            document.getElementById('export-id').innerText = `#${pending.noradId}`;
-            document.getElementById('export-type').innerText = pending.type.toUpperCase();
-            document.getElementById('export-stat').innerText = `"${pending.stat}"`;
+            document.getElementById('export-ex-name').innerText = exName;
+            document.getElementById('export-id').innerText = `#${selectedDebris.noradId}`;
+            document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
+            document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
 
             const certElement = document.getElementById('export-cert');
             certElement.style.left = '0px';
@@ -361,13 +435,18 @@
                 imgResult.src = canvas.toDataURL('image/png');
                 loadingText.style.display = 'none';
                 imgContainer.style.display = 'block';
-            } catch (err) { } finally { certElement.style.left = '-9999px'; }
+            } catch (err) {
+                console.error(err);
+                loadingText.innerText = 'Preview failed to generate. Please try again.';
+            } finally {
+                certElement.style.left = '-9999px';
+            }
         }
 
         async function downloadCertificateImage(noradId, type, stat, exName) {
             const btn = document.getElementById('download-cert-btn');
             btn.innerText = "GENERATING...";
-            
+
             document.getElementById('export-ex-name').innerText = exName;
             document.getElementById('export-id').innerText = `#${noradId}`;
             document.getElementById('export-type').innerText = type.toUpperCase();
@@ -384,28 +463,69 @@
                 link.click();
                 btn.innerText = "DOWNLOAD COMPLETE!";
                 setTimeout(() => { btn.innerText = "📸 DOWNLOAD CERTIFICATE FOR SOCIALS"; }, 3000);
-            } catch (err) {} finally { certElement.style.left = '-9999px'; }
+            } catch (err) {
+                console.error(err);
+                btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
+            } finally {
+                certElement.style.left = '-9999px';
+            }
         }
 
-        // --- 7. POST-PURCHASE SUCCESS CHECK ---
+        // --- 8. POST-PURCHASE VERIFICATION ---
+        // Stripe redirects back to success_url with a real session_id. We ask our
+        // own server to confirm with Stripe's API that the session actually paid
+        // before we ever write to the registry or show the success modal. This is
+        // the piece that makes claims trustworthy — a URL parameter alone proves
+        // nothing.
         window.addEventListener('DOMContentLoaded', async () => {
-            if (new URLSearchParams(window.location.search).get('paid') === 'true') {
-                const pending = JSON.parse(sessionStorage.getItem('pending_purchase') || '{}');
-                if (pending.noradId) {
-                    if (_supabase) {
-                        await _supabase.from('global_registry').insert([{
-                            norad_id: pending.noradId, debris_name: pending.type, dedication_name: pending.exName
-                        }]);
-                    }
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    sessionStorage.removeItem('pending_purchase');
+            await loadRegistry();
+            updateTickerFeed();
 
-                    document.getElementById('success-name').innerText = pending.exName;
-                    document.getElementById('download-cert-btn').onclick = () => {
-                        downloadCertificateImage(pending.noradId, pending.type, pending.stat, pending.exName);
-                    };
-                    document.getElementById('success-modal').style.display = 'block';
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session_id');
+            if (!sessionId) return;
+
+            document.getElementById('verifying-modal').style.display = 'block';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+                if (!res.ok) throw new Error('Verification request failed');
+                const result = await res.json();
+
+                if (!result.paid) {
+                    document.getElementById('verifying-modal').style.display = 'none';
+                    alert('We could not confirm payment for this session. If you were charged, contact support.');
+                    return;
                 }
+
+                // result.metadata comes back from Stripe (set server-side at
+                // session creation), not from anything the client controls.
+                const { noradId, type, stat, exName } = result.metadata;
+
+                if (_supabase) {
+                    // norad_id should have a UNIQUE constraint in Supabase so a
+                    // race between two buyers on the same debris fails safely.
+                    const { error } = await _supabase.from('global_registry').insert([{
+                        norad_id: noradId, debris_name: type, dedication_name: exName, stripe_session_id: sessionId
+                    }]);
+                    if (error && error.code !== '23505') { // ignore unique-violation duplicates
+                        console.error(error);
+                    }
+                }
+
+                window.history.replaceState({}, document.title, window.location.pathname);
+                await loadRegistry();
+
+                document.getElementById('verifying-modal').style.display = 'none';
+                document.getElementById('success-name').innerText = exName;
+                document.getElementById('download-cert-btn').onclick = () => {
+                    downloadCertificateImage(noradId, type, stat, exName);
+                };
+                document.getElementById('success-modal').style.display = 'block';
+            } catch (err) {
+                console.error(err);
+                document.getElementById('verifying-modal').style.display = 'none';
+                alert('Something went wrong verifying your payment. Contact support with your session ID: ' + sessionId);
             }
         });
 
