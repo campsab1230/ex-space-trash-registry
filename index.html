@@ -72,40 +72,42 @@
 <body>
     <div id="three-container"></div>
 
-    <div id="ui">
+   <div id="ui">
         <div class="top-bar">
             <div class="hud-panel header-panel">
                 <h1>EXSPACETRASH.COM</h1>
                 <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
                 <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk. Claim it. Name it. Done.</p>
+
+                <!-- Orbit Selector Dropdown -->
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
+                    <label for="orbit-select" style="font-size: 0.85rem; color: #8ab4f8; font-weight: bold;">ORBIT SECTOR:</label>
+                    <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)" style="background: #0a0f18; color: #4ef2d2; border: 1px solid #4ef2d2; padding: 6px 10px; font-family: inherit; font-size: 0.85rem; border-radius: 4px; cursor: pointer; outline: none;">
+                        <option value="ALL">ALL ORBITS (ALL SECTORS)</option>
+                        <option value="LEO">LOW EARTH ORBIT (LEO • &lt; 2,000 km)</option>
+                        <option value="MEO">MEDIUM EARTH ORBIT (MEO • 2,000–35,000 km)</option>
+                        <option value="GEO">GEOSTATIONARY (GEO • &gt; 35,000 km)</option>
+                    </select>
+                </div>
             </div>
-<!-- Orbit Selector Dropdown -->
-<div style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
-  <label for="orbit-select" style="font-size: 0.85rem; color: #8ab4f8; font-weight: bold;">ORBIT SECTOR:</label>
-  <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)" style="background: #0a0f18; color: #4ef2d2; border: 1px solid #4ef2d2; padding: 6px 10px; font-family: inherit; font-size: 0.85rem; border-radius: 4px; cursor: pointer; outline: none;">
-    <option value="ALL">ALL ORBITS (ALL SECTORS)</option>
-    <option value="LEO">LOW EARTH ORBIT (LEO • &lt; 2,000 km)</option>
-    <option value="MEO">MEDIUM EARTH ORBIT (MEO • 2,000–35,000 km)</option>
-    <option value="GEO">GEOSTATIONARY (GEO • &gt; 35,000 km)</option>
-  </select>
-</div>
+
             <div class="hud-panel auth-panel">
                 <div id="g_id_onload"
-     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
-     data-context="signin"
-     data-ux_mode="popup"
-     data-callback="handleCredentialResponse"
-     data-auto_prompt="false">
-</div>
+                     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
 
-<div class="g_id_signin"
-     data-type="standard"
-     data-shape="rectangular"
-     data-theme="outline"
-     data-text="signin_with"
-     data-size="large"
-     data-logo_alignment="left">
-</div>
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="outline"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left">
+                </div>
                 <button id="logout-btn" style="display:none; font-size: 0.7rem; padding: 4px; margin-top: 5px; border:none; border-bottom: 1px solid #ff5577; color: #ff5577; width: auto;" onclick="logout()">Disconnect</button>
             </div>
         </div>
@@ -114,7 +116,6 @@
             <div id="live-ticker"><span class="highlight">INITIALIZING U.S. SPACE COMMAND UPLINK...</span></div>
         </div>
     </div>
-
     <!-- Tactical HUD Inspector -->
     <div id="hud-panel">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #00f0ff; padding-bottom: 6px; margin-bottom: 10px;">
