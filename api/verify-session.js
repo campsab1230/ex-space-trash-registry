@@ -1,35 +1,32 @@
-// Vercel serverless function: GET /api/verify-session?session_id=cs_test_...
-// Asks Stripe directly whether this session was actually paid. This is the
-// step that a URL query param like ?paid=true can never substitute for —
-// only Stripe's own API can confirm a real payment happened.
-//
-// Env vars needed:
-// STRIPE_SECRET_KEY
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
-const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-module.exports = async (req, res) => {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export default async function handler(req, res) {
   const { session_id } = req.query;
-  if (!session_id) {
-    return res.status(400).json({ error: 'Missing session_id' });
-  }
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
-    const paid = session.payment_status === 'paid';
+    if (session.payment_status === 'paid') {
+      const { noradId, type, stat, exName, userEmail } = session.metadata;
 
-    return res.status(200).json({
-      paid,
-      metadata: paid ? session.metadata : null,
-    });
+      // Insert record into Supabase with user email tracking
+      await supabase.from('global_registry').insert([{
+        norad_id: noradId,
+        debris_name: type,
+        dedication_name: exName,
+        user_email: userEmail !== 'ANONYMOUS' ? userEmail : null,
+        stripe_session_id: session_id
+      }]);
+
+      res.status(200).json({ paid: true, metadata: session.metadata });
+    } else {
+      res.status(200).json({ paid: false });
+    }
   } catch (err) {
-    console.error('verify-session error:', err);
-    return res.status(500).json({ error: 'Failed to verify session' });
+    res.status(500).json({ error: err.message });
   }
-};
+}
