@@ -1,31 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-   <script src="https://accounts.google.com/gsi/client" async></script>
+    <script src="https://accounts.google.com/gsi/client" async></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ExSpaceTrash.com • Official Registry of Space Trash</title>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
-    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Supabase Client JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- HTML to Image converter -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-   <script>
-  function handleCredentialResponse(response) {
-    console.log("Encoded JWT ID token: " + response.credential);
-    document.querySelector('.g_id_signin').style.display = 'none';
-    document.getElementById('logout-btn').style.display = 'inline-block';
-    currentUser = "Google User";
-  }
-
-  function logout() {
-    document.getElementById('logout-btn').style.display = 'none';
-    document.querySelector('.g_id_signin').style.display = 'block';
-    currentUser = null;
-  }
-</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         * { box-sizing: border-box; }
@@ -37,13 +19,21 @@
 
         .top-bar { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none; }
         .header-panel { max-width: 480px; pointer-events: auto; }
-        .auth-panel { pointer-events: auto; text-align: right; }
+        .auth-panel { pointer-events: auto; text-align: right; min-width: 200px; }
 
         .ticker-panel { width: 100%; max-width: 750px; margin: 0 auto; text-align: center; font-size: 0.9rem; overflow: hidden; white-space: nowrap; border-color: #555; background: rgba(10, 10, 15, 0.9); }
 
         h1 { font-size: 1.5rem; margin: 0 0 4px 0; letter-spacing: 1px; color: #fff; text-shadow: 0 0 10px #4ef2d2; }
         p { margin: 3px 0; color: #8ab4f8; font-size: 0.9rem; }
         .highlight { color: #ff5577; text-shadow: 0 0 8px #ff5577; }
+
+        .field-label { font-size: 0.8rem; color: #8ab4f8; font-weight: bold; display: block; margin-top: 10px; }
+        .search-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+        .search-row input, .search-row select {
+            background: #0a0f18; color: #4ef2d2; border: 1px solid #4ef2d2;
+            padding: 6px 10px; font-family: inherit; font-size: 0.8rem; border-radius: 4px;
+            outline: none; flex: 1; min-width: 140px;
+        }
 
         #hud-panel { display: none; position: fixed; top: 80px; right: 20px; width: 340px; background: rgba(10, 15, 25, 0.95); border: 1px solid #00f0ff; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3); color: #00f0ff; font-family: monospace; padding: 16px; border-radius: 8px; z-index: 50; }
         .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 25px; background: #060b16; border: 2px solid #4ef2d2; width: 92%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 40px rgba(78, 242, 210, 0.3); color: #e0e0e0; z-index: 100; border-radius: 6px; }
@@ -60,6 +50,9 @@
         input.name-input { width: 100%; background: #0a0f18; border: 1px solid #4ef2d2; color: #efc84e; font-family: inherit; font-size: 1.1rem; padding: 10px; border-radius: 4px; text-transform: uppercase; margin-top: 10px; }
         input.name-input:focus { outline: none; box-shadow: 0 0 10px rgba(78,242,210,0.5); }
 
+        #loading-banner { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 5; color: #4ef2d2; font-size: 1rem; text-align: center; }
+        #error-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: rgba(255,85,119,0.15); border: 1px solid #ff5577; color: #ff5577; padding: 10px 18px; border-radius: 6px; display: none; max-width: 90%; text-align: center; }
+
         @media (max-width: 768px) {
             #ui { padding: 10px; }
             h1 { font-size: 1.2rem; }
@@ -71,22 +64,33 @@
 </head>
 <body>
     <div id="three-container"></div>
+    <div id="loading-banner">ESTABLISHING UPLINK TO NORAD CATALOG...</div>
+    <div id="error-banner"></div>
 
-   <div id="ui">
+    <div id="ui">
         <div class="top-bar">
             <div class="hud-panel header-panel">
                 <h1>EXSPACETRASH.COM</h1>
                 <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
-                <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk. Claim it. Name it. Done.</p>
+                <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk, or search below. Claim it. Name it. Done.</p>
 
-                <!-- Orbit Selector Dropdown -->
-                <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
-                    <label for="orbit-select" style="font-size: 0.85rem; color: #8ab4f8; font-weight: bold;">ORBIT SECTOR:</label>
-                    <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)" style="background: #0a0f18; color: #4ef2d2; border: 1px solid #4ef2d2; padding: 6px 10px; font-family: inherit; font-size: 0.85rem; border-radius: 4px; cursor: pointer; outline: none;">
-                        <option value="ALL">ALL ORBITS (ALL SECTORS)</option>
-                        <option value="LEO">LOW EARTH ORBIT (LEO • &lt; 2,000 km)</option>
-                        <option value="MEO">MEDIUM EARTH ORBIT (MEO • 2,000–35,000 km)</option>
-                        <option value="GEO">GEOSTATIONARY (GEO • &gt; 35,000 km)</option>
+                <label class="field-label" for="orbit-select">ORBIT SECTOR</label>
+                <div class="search-row">
+                    <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)">
+                        <option value="ALL">ALL ORBITS</option>
+                        <option value="LEO">LOW EARTH ORBIT (&lt; 2,000 km)</option>
+                        <option value="MEO">MEDIUM EARTH ORBIT (2,000–35,000 km)</option>
+                        <option value="GEO">GEOSTATIONARY (&gt; 35,000 km)</option>
+                    </select>
+                </div>
+
+                <label class="field-label" for="noradSearch">FIND SPECIFIC DEBRIS</label>
+                <div class="search-row">
+                    <input type="text" id="noradSearch" placeholder="Search NORAD ID or name..." oninput="filterDropdownBySearch(this.value)" />
+                </div>
+                <div class="search-row">
+                    <select id="trashDropdown" onchange="selectFromDropdown(this.value)">
+                        <option value="">-- Choose an Object --</option>
                     </select>
                 </div>
             </div>
@@ -99,7 +103,6 @@
                      data-callback="handleCredentialResponse"
                      data-auto_prompt="false">
                 </div>
-
                 <div class="g_id_signin"
                      data-type="standard"
                      data-shape="rectangular"
@@ -108,6 +111,7 @@
                      data-size="large"
                      data-logo_alignment="left">
                 </div>
+                <div id="user-email-display" style="font-size:0.75rem; color:#8ab4f8; margin-top:6px;"></div>
                 <button id="logout-btn" style="display:none; font-size: 0.7rem; padding: 4px; margin-top: 5px; border:none; border-bottom: 1px solid #ff5577; color: #ff5577; width: auto;" onclick="logout()">Disconnect</button>
             </div>
         </div>
@@ -116,6 +120,7 @@
             <div id="live-ticker"><span class="highlight">INITIALIZING U.S. SPACE COMMAND UPLINK...</span></div>
         </div>
     </div>
+
     <!-- Tactical HUD Inspector -->
     <div id="hud-panel">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #00f0ff; padding-bottom: 6px; margin-bottom: 10px;">
@@ -126,13 +131,14 @@
       <div style="font-size: 12px; line-height: 1.8; color: #d0f0ff;">
         <div><strong>NORAD ID:</strong> <span id="hud-norad" style="color:#fff;">--</span></div>
         <div><strong>CLASSIFICATION:</strong> <span id="hud-type" style="color:#ff5577;">--</span></div>
+        <div><strong>ALTITUDE:</strong> <span id="hud-alt" style="color:#8ab4f8;">--</span></div>
         <div style="margin: 8px 0; color: #8ab4f8; font-style: italic;" id="hud-stat">--</div>
         <div style="border-top: 1px dashed #333; margin-top: 5px; padding-top: 5px;"><strong>STATUS:</strong> <span id="hud-status" style="color:#4ef2d2;">READY FOR ASSIGNMENT</span></div>
         <div><strong>FOREVER ASSOCIATED WITH:</strong> <span id="hud-assigned" style="color:#fff;">NONE</span></div>
       </div>
 
       <button id="hud-checkout-btn" onclick="openCertificateModal()" style="background: #00f0ff; color: #000;">
-        CLAIM THIS TRASH // $1.99
+        CLAIM THIS TRASH
       </button>
     </div>
 
@@ -149,7 +155,7 @@
         <div id="cert-text" style="line-height: 1.6; font-size: 0.95rem; margin: 15px 0; text-align: left; font-family: monospace; background: rgba(0,0,0,0.5); padding: 15px; border-left: 3px solid #4ef2d2;"></div>
 
         <button id="preview-btn" onclick="generatePreview()" style="border-color: #00f0ff; color: #00f0ff; margin-bottom: 10px;">👀 PREVIEW SOCIAL CERTIFICATE</button>
-        <button id="checkout-button" style="border-color: #efc84e; color: #efc84e;" onclick="startCheckout()">CONFIRM PAYMENT ($1.99)</button>
+        <button id="checkout-button" style="border-color: #efc84e; color: #efc84e;" onclick="startCheckout()">CONFIRM PAYMENT</button>
         <button class="close-btn" onclick="document.getElementById('certificate').style.display='none'">ABORT</button>
     </div>
 
@@ -186,7 +192,7 @@
     <!-- Verifying payment modal -->
     <div id="verifying-modal" class="modal" style="max-width: 400px; text-align:center; border-color:#efc84e;">
         <h3 style="color:#efc84e;">VERIFYING PAYMENT...</h3>
-        <p style="color:#8ab4f8; font-size:0.9rem;">Confirming your transaction with Stripe before locking in the claim.</p>
+        <p id="verifying-text" style="color:#8ab4f8; font-size:0.9rem;">Confirming your transaction with Stripe before locking in the claim.</p>
     </div>
 
     <!-- Hidden Certificate Template for Social Media Export -->
@@ -207,35 +213,19 @@
         </div>
     </div>
 
-   <script>
-    // --- 1. CONFIGURATION ---
+    <script>
+    // =====================================================================
+    // 1. CONFIGURATION — only the PUBLIC anon key belongs here.
+    //    Never put a Supabase service_role key or Stripe secret key in
+    //    this file — anything in this file is visible to every visitor.
+    // =====================================================================
     const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
-    const _supabase = (SUPABASE_URL.indexOf('YOUR_') === -1) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-    const API_BASE = ''; 
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const API_BASE = ''; // same-origin serverless functions under /api
     let currentUser = null;
 
-    // --- 2. COMEDY ARRAYS ---
-    const debrisTypes = [
-      "Something NASA insists wasn't important",
-      "Probably from Russia",
-      "Definitely shouldn't still be up there",
-      "Nobody remembers launching this",
-      "Frozen Coolant Leak",
-      "Detached Rocket Bolt",
-      "Dead Weather Satellite",
-      "Unidentified Metallic Slag"
-    ];
-
-    const debrisStats = [
-      "Completed 147,000 trips around Earth.",
-      "Survived three presidents and your relationship didn't.",
-      "Moving 17,000 mph away from accountability.",
-      "Chances of reentry: Higher than your ex apologizing.",
-      "Orbits the earth every 90 minutes. Just like their excuses.",
-      "Currently completely lost in space. Relatable."
-    ];
-
+    // --- Snark for flavor text only (never used to fabricate fake debris) ---
     const exSnarkQuotes = [
       "STILL OWES ME $40 FOR TACOS",
       "EMOTIONAL CAPACITY OF A PLASTIC SPOON",
@@ -247,12 +237,44 @@
       "LEAVES 3 SECONDS ON THE MICROWAVE"
     ];
 
-    // --- 3. LIVE REGISTRY ---
+    // =====================================================================
+    // 2. AUTH — decode the real Google JWT instead of hardcoding a name
+    // =====================================================================
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+      } catch (e) {
+        console.error('Failed to parse Google credential', e);
+        return null;
+      }
+    }
+
+    function handleCredentialResponse(response) {
+      const payload = parseJwt(response.credential);
+      if (!payload || !payload.email) return;
+      currentUser = payload.email;
+      document.querySelector('.g_id_signin').style.display = 'none';
+      document.getElementById('logout-btn').style.display = 'inline-block';
+      document.getElementById('user-email-display').textContent = currentUser;
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('logout-btn').style.display = 'none';
+      document.querySelector('.g_id_signin').style.display = 'block';
+      document.getElementById('user-email-display').textContent = '';
+    }
+
+    // =====================================================================
+    // 3. LIVE REGISTRY (read-only from the client — writes only happen
+    //    server-side, in api/stripe-webhook.js, after Stripe confirms payment)
+    // =====================================================================
     let liveGlobalRegistry = {};
-    let selectedDebris = null;
 
     async function loadRegistry() {
-      if (!_supabase) return;
       try {
         const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name');
         if (error) throw error;
@@ -282,9 +304,11 @@
     }
     setInterval(updateTickerFeed, 6000);
 
-    // --- 4. 3D RENDER ENGINE ---
-    const raycaster = new THREE.Raycaster()
-      raycaster.params.Mesh.threshold = 0.5;
+    // =====================================================================
+    // 4. 3D RENDER ENGINE
+    // =====================================================================
+    const raycaster = new THREE.Raycaster();
+    raycaster.params.Mesh.threshold = 0.5;
     const mouse = new THREE.Vector2();
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -292,7 +316,6 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.getElementById('three-container').appendChild(renderer.domElement);
-
     camera.position.z = 5.5;
 
     const earth = new THREE.Mesh(
@@ -309,9 +332,12 @@
     scene.add(sunLight);
     scene.add(new THREE.AmbientLight(0x222233, 0.8));
 
+    // trashPieces = ONLY real, API-sourced debris. Anything clickable and
+    // claimable must come from the server so IDs are stable and real.
     const trashPieces = [];
     const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
 
+    // Decorative-only broken hearts — NOT clickable, NOT claimable, purely atmosphere.
     function createHeartMesh() {
       const heartShape = new THREE.Shape();
       heartShape.moveTo(0, 0);
@@ -319,7 +345,6 @@
       heartShape.bezierCurveTo(-0.5, -0.4, 0, -0.6, 0, -1.0);
       heartShape.bezierCurveTo(0, -0.6, 0.5, -0.4, 0.5, 0);
       heartShape.bezierCurveTo(0.5, 0.6, 0, 0.3, 0, 0);
-
       const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
       const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
       const material = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3, metalness: 0.2 });
@@ -329,124 +354,125 @@
       return mesh;
     }
 
-   async function initLiveDebrisField() {
-      // 1. Spawn floating broken heart debris
-      for (let i = 0; i < 8; i++) {
-        const heartMesh = createHeartMesh();
-        const radius = 2.0 + Math.random() * 1.5;
-        const angle = Math.random() * Math.PI * 2;
-        heartMesh.position.x = Math.cos(angle) * radius;
-        heartMesh.position.z = Math.sin(angle) * radius;
-        heartMesh.position.y = (Math.random() - 0.5) * 2;
-        heartMesh.userData = {
-          noradId: "HEART-" + (i + 1),
-          type: "BROKEN HEART DEBRIS",
-          stat: exSnarkQuotes[Math.floor(Math.random() * exSnarkQuotes.length)],
-          price: 1.99,
-          regime: "LEO",
-          orbitRadius: radius,
-          angle: angle
-        };
-        scene.add(heartMesh);
-        trashPieces.push(heartMesh);
-      }
-
-      // 2. Helper function to generate trash meshes with tier pricing
-      function createDebrisItem(noradId, name, regime, radius, price, stat) {
-        const geo = new THREE.BufferGeometry();
-        const vertices = [];
-        for (let i = 0; i < 12; i++) {
-          vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
-        }
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        geo.computeVertexNormals();
-
-        const mesh = new THREE.Mesh(geo, metalMaterial);
-        const angle = Math.random() * Math.PI * 2;
-
-        mesh.position.x = Math.cos(angle) * radius;
-        mesh.position.z = Math.sin(angle) * radius;
-        mesh.position.y = (Math.random() - 0.5) * 2.5;
-
-        mesh.userData = {
-          noradId: noradId,
-          type: name,
-          stat: stat || debrisStats[Math.floor(Math.random() * debrisStats.length)],
-          price: price,
-          regime: regime,
-          orbitRadius: radius,
-          angle: angle
-        };
-
-        scene.add(mesh);
-        trashPieces.push(mesh);
-      }
-
-      // 3. Fallback space trash objects across LEO, MEO, and GEO
-      const orbitPresets = [
-        // LEO ($1.99) - Radius 1.8 to 2.5
-        { count: 12, regime: 'LEO', radiusMin: 1.8, radiusMax: 2.5, price: 1.99, prefix: 20000 },
-        // MEO ($5.99) - Radius 3.0 to 4.5
-        { count: 10, regime: 'MEO', radiusMin: 3.0, radiusMax: 4.5, price: 5.99, prefix: 30000 },
-        // GEO ($9.99) - Radius 5.5 to 7.0
-        { count: 8, regime: 'GEO', radiusMin: 5.5, radiusMax: 7.0, price: 9.99, prefix: 40000 }
-      ];
-
-      orbitPresets.forEach(preset => {
-        for (let i = 0; i < preset.count; i++) {
-          const norad = preset.prefix + Math.floor(Math.random() * 9000);
-          const type = debrisTypes[Math.floor(Math.random() * debrisTypes.length)];
-          const radius = preset.radiusMin + Math.random() * (preset.radiusMax - preset.radiusMin);
-          createDebrisItem(norad, type, preset.regime, radius, preset.price);
-        }
-      });
-
-      // 4. Optionally augment with live CelesTrak API if backend is active
-      try {
-        const res = await fetch('/api/get-celestrak-debris');
-        if (res.ok) {
-          const debrisList = await res.json();
-          debrisList.forEach((data) => {
-            let price = 1.99;
-            if (data.regime === 'MEO') price = 5.99;
-            if (data.regime === 'GEO') price = 9.99;
-
-            const radius = 1.8 + Math.min((data.altKm || 1000) / 5000, 5.5);
-            createDebrisItem(
-              data.noradId, 
-              data.officialName || "Decommissioned Satellite", 
-              data.regime || "LEO", 
-              radius, 
-              price, 
-              `${data.tierLabel || 'Space Debris'} | Alt: ${(data.altKm || 0).toLocaleString()} km`
-            );
-          });
-        }
-      } catch (err) {
-        console.warn("CelesTrak live feed fallback active.");
-      }
+    const decorativePieces = [];
+    for (let i = 0; i < 8; i++) {
+      const heartMesh = createHeartMesh();
+      const radius = 2.0 + Math.random() * 1.5;
+      const angle = Math.random() * Math.PI * 2;
+      heartMesh.position.x = Math.cos(angle) * radius;
+      heartMesh.position.z = Math.sin(angle) * radius;
+      heartMesh.position.y = (Math.random() - 0.5) * 2;
+      heartMesh.userData = { orbitRadius: radius, angle };
+      scene.add(heartMesh);
+      decorativePieces.push(heartMesh);
     }
 
+    function createDebrisItem(data) {
+      const geo = new THREE.BufferGeometry();
+      const vertices = [];
+      for (let i = 0; i < 12; i++) {
+        vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
+      }
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geo.computeVertexNormals();
+
+      const mesh = new THREE.Mesh(geo, metalMaterial);
+      const angle = Math.random() * Math.PI * 2;
+      // radius purely visual — scaled from real altitude so LEO/MEO/GEO nest correctly
+      let radius;
+      if (data.regime === 'GEO') radius = 5.5 + Math.random() * 1.5;
+      else if (data.regime === 'MEO') radius = 3.0 + Math.random() * 1.5;
+      else radius = 1.8 + Math.random() * 0.7;
+
+      mesh.position.x = Math.cos(angle) * radius;
+      mesh.position.z = Math.sin(angle) * radius;
+      mesh.position.y = (Math.random() - 0.5) * 2.5;
+
+      mesh.userData = {
+        noradId: String(data.noradId),
+        type: data.officialName || 'Unidentified Debris',
+        stat: `${data.tierLabel || 'Catalogued debris'} • Alt: ${data.altKm ? data.altKm.toLocaleString() : '?'} km`,
+        altKm: data.altKm,
+        price: data.regime === 'GEO' ? 9.99 : data.regime === 'MEO' ? 5.99 : 1.99,
+        regime: data.regime || 'LEO',
+        orbitRadius: radius,
+        angle
+      };
+      scene.add(mesh);
+      trashPieces.push(mesh);
+    }
+
+    async function initLiveDebrisField() {
+      try {
+        const res = await fetch(`${API_BASE}/api/get-celestrak-debris`);
+        if (!res.ok) throw new Error('Debris feed unavailable');
+        const debrisList = await res.json();
+        if (!Array.isArray(debrisList) || debrisList.length === 0) throw new Error('Empty debris feed');
+        debrisList.forEach(createDebrisItem);
+        populateDropdown();
+        document.getElementById('loading-banner').style.display = 'none';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading-banner').textContent =
+          'COULD NOT REACH THE DEBRIS CATALOG. Refresh to retry.';
+      }
+    }
     initLiveDebrisField();
 
-function filterDebrisByOrbit(sector) {
-  // Move camera distance (Z-axis) based on which orbit sector is selected
-  if (sector === 'LEO') {
-    camera.position.z = 4.5;   // Close to Earth
-  } else if (sector === 'MEO') {
-    camera.position.z = 7.5;   // Medium distance
-  } else if (sector === 'GEO') {
-    camera.position.z = 12.0;  // Zoom way out
-  } else {
-    camera.position.z = 5.5;   // Default / ALL ORBITS view
-  }
-}
-    // --- 5. INTERACTION & MODALS ---
+    // =====================================================================
+    // 5. SEARCH / DROPDOWN FALLBACK — keyboard + mobile accessible
+    // =====================================================================
+    function populateDropdown() {
+      const dropdown = document.getElementById('trashDropdown');
+      dropdown.innerHTML = '<option value="">-- Choose an Object --</option>';
+      trashPieces.forEach(mesh => {
+        const d = mesh.userData;
+        const opt = document.createElement('option');
+        opt.value = d.noradId;
+        opt.textContent = `#${d.noradId} — ${d.type} (${d.regime})`;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    function filterDropdownBySearch(query) {
+      const q = query.trim().toLowerCase();
+      const dropdown = document.getElementById('trashDropdown');
+      Array.from(dropdown.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = q.length > 0 && !opt.textContent.toLowerCase().includes(q);
+      });
+    }
+
+    function selectFromDropdown(noradId) {
+      if (!noradId) return;
+      const mesh = trashPieces.find(m => m.userData.noradId === noradId);
+      if (mesh) inspectDebris(mesh.userData);
+    }
+
+    // =====================================================================
+    // 6. ORBIT FILTER — actually hides/shows objects, not just camera zoom
+    // =====================================================================
+    function filterDebrisByOrbit(sector) {
+      trashPieces.forEach(mesh => {
+        mesh.visible = (sector === 'ALL' || mesh.userData.regime === sector);
+      });
+      if (sector === 'LEO') camera.position.z = 4.5;
+      else if (sector === 'MEO') camera.position.z = 7.5;
+      else if (sector === 'GEO') camera.position.z = 12.0;
+      else camera.position.z = 5.5;
+    }
+
+    // =====================================================================
+    // 7. INTERACTION & MODALS
+    // =====================================================================
+    let selectedDebris = null;
+
     function inspectDebris(data) {
       selectedDebris = data;
       const isClaimed = liveGlobalRegistry[data.noradId];
       document.getElementById('hud-norad').innerText = `#${data.noradId}`;
       document.getElementById('hud-type').innerText = data.type.toUpperCase();
+      document.getElementById('hud-alt').innerText = data.altKm ? `${data.altKm.toLocaleString()} km` : 'Unknown';
       document.getElementById('hud-stat').innerText = `"${data.stat}"`;
 
       const btn = document.getElementById('hud-checkout-btn');
@@ -482,7 +508,11 @@ function filterDebrisByOrbit(sector) {
       const container = document.getElementById('cert-text');
       container.innerHTML = '';
       const line1 = document.createElement('div');
-      line1.innerHTML = `NORAD ID: <span class="highlight">#${selectedDebris.noradId}</span>`;
+      line1.appendChild(document.createTextNode('NORAD ID: '));
+      const span = document.createElement('span');
+      span.className = 'highlight';
+      span.textContent = `#${selectedDebris.noradId}`;
+      line1.appendChild(span);
       container.appendChild(line1);
 
       const line2 = document.createElement('div');
@@ -501,7 +531,9 @@ function filterDebrisByOrbit(sector) {
       if (!selectedDebris) return;
       closeHud();
       document.getElementById('ex-name-input').value = '';
-      document.getElementById('cert-text').innerHTML = '';
+      document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
+      document.getElementById('checkout-button').disabled = false;
+      renderCertText('UNKNOWN');
       document.getElementById('certificate').style.display = 'block';
     }
 
@@ -509,7 +541,18 @@ function filterDebrisByOrbit(sector) {
       if (selectedDebris) renderCertText(getSanitizedExName());
     });
 
-    // --- 6. CHECKOUT ---
+    function showError(msg) {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = msg;
+      banner.style.display = 'block';
+      setTimeout(() => { banner.style.display = 'none'; }, 6000);
+    }
+
+    // =====================================================================
+    // 8. CHECKOUT — the server (api/create-checkout.js) is the only place
+    //    a Stripe session is created, and it double-checks the item isn't
+    //    already claimed / already being purchased before doing so.
+    // =====================================================================
     async function startCheckout() {
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
@@ -526,21 +569,31 @@ function filterDebrisByOrbit(sector) {
             stat: selectedDebris.stat,
             exName: exName,
             price: selectedDebris.price,
-             userEmail: currentUser
+            userEmail: currentUser
           })
         });
+        if (res.status === 409) {
+          const body = await res.json().catch(() => ({}));
+          showError(body.error || 'That object was just claimed by someone else.');
+          await loadRegistry();
+          if (selectedDebris) inspectDebris(selectedDebris);
+          document.getElementById('certificate').style.display = 'none';
+          return;
+        }
         if (!res.ok) throw new Error('Checkout session creation failed');
         const { url } = await res.json();
         window.location.href = url;
       } catch (err) {
         console.error(err);
-        alert('Something went wrong starting checkout. Please try again.');
+        showError('Something went wrong starting checkout. Please try again.');
         btn.disabled = false;
-        btn.innerText = "CONFIRM PAYMENT ($1.99)";
+        btn.innerText = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       }
     }
 
-    // --- 7. PREVIEW & EXPORT ---
+    // =====================================================================
+    // 9. PREVIEW & EXPORT
+    // =====================================================================
     async function generatePreview() {
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
@@ -604,7 +657,52 @@ function filterDebrisByOrbit(sector) {
       }
     }
 
-    // --- 8. POST-PURCHASE VERIFICATION ---
+    // =====================================================================
+    // 10. POST-PURCHASE VERIFICATION
+    //     This ONLY reads status. The actual "sold" record is written by
+    //     api/stripe-webhook.js on the server after Stripe confirms
+    //     payment — the browser can no longer write that row itself.
+    // =====================================================================
+    async function pollVerification(sessionId, attempt = 0) {
+      const maxAttempts = 10;
+      try {
+        const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+        if (!res.ok) throw new Error('Verification request failed');
+        const result = await res.json();
+
+        if (!result.paid) {
+          document.getElementById('verifying-modal').style.display = 'none';
+          showError('We could not confirm payment for this session. If you were charged, contact support.');
+          return;
+        }
+
+        if (!result.registered) {
+          if (attempt >= maxAttempts) {
+            document.getElementById('verifying-text').textContent =
+              'Payment confirmed, still finalizing your claim — this can take a moment. You can safely close this and check back.';
+            return;
+          }
+          setTimeout(() => pollVerification(sessionId, attempt + 1), 1500);
+          return;
+        }
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await loadRegistry();
+
+        const { noradId, type, stat, exName } = result.metadata;
+        document.getElementById('verifying-modal').style.display = 'none';
+        document.getElementById('success-name').innerText = exName;
+        document.getElementById('download-cert-btn').onclick = () => {
+          downloadCertificateImage(noradId, type, stat, exName);
+        };
+        document.getElementById('success-modal').style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('verifying-modal').style.display = 'none';
+        showError('Something went wrong verifying your payment. Contact support with your session ID: ' + sessionId);
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       await loadRegistry();
       updateTickerFeed();
@@ -614,51 +712,17 @@ function filterDebrisByOrbit(sector) {
       if (!sessionId) return;
 
       document.getElementById('verifying-modal').style.display = 'block';
-
-      try {
-        const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
-        if (!res.ok) throw new Error('Verification request failed');
-        const result = await res.json();
-
-        if (!result.paid) {
-          document.getElementById('verifying-modal').style.display = 'none';
-          alert('We could not confirm payment for this session. If you were charged, contact support.');
-          return;
-        }
-
-        const { noradId, type, stat, exName } = result.metadata;
-        if (_supabase) {
-          const { error } = await _supabase.from('global_registry').insert([
-            { norad_id: noradId, debris_name: type, dedication_name: exName, stripe_session_id: sessionId }
-          ]);
-          if (error && error.code !== '23505') {
-            console.error(error);
-          }
-        }
-
-        window.history.replaceState({}, document.title, window.location.pathname);
-        await loadRegistry();
-
-        document.getElementById('verifying-modal').style.display = 'none';
-        document.getElementById('success-name').innerText = exName;
-        document.getElementById('download-cert-btn').onclick = () => {
-          downloadCertificateImage(noradId, type, stat, exName);
-        };
-        document.getElementById('success-modal').style.display = 'block';
-
-      } catch (err) {
-        console.error(err);
-        document.getElementById('verifying-modal').style.display = 'none';
-        alert('Something went wrong verifying your payment. Contact support with your session ID: ' + sessionId);
-      }
+      pollVerification(sessionId);
     });
 
-    // --- 9. ANIMATION LOOP ---
+    // =====================================================================
+    // 11. ANIMATION LOOP
+    // =====================================================================
     function animate() {
       requestAnimationFrame(animate);
       earth.rotation.y += 0.0005;
 
-      trashPieces.forEach(t => {
+      [...trashPieces, ...decorativePieces].forEach(t => {
         if (t.userData.orbitRadius !== undefined && t.userData.angle !== undefined) {
           t.userData.angle += 0.0012;
           t.position.x = Math.cos(t.userData.angle) * t.userData.orbitRadius;
@@ -678,9 +742,15 @@ function filterDebrisByOrbit(sector) {
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(trashPieces);
+      const intersects = raycaster.intersectObjects(trashPieces); // decorative hearts excluded on purpose
 
       if (intersects.length > 0) inspectDebris(intersects[0].object.userData);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
     animate();
