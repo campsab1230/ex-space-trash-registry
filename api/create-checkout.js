@@ -9,25 +9,21 @@ export default async function handler(req, res) {
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `ExSpaceTrash Claim: NORAD #${noradId}`,
-            description: `Permanent assignment to: ${exName}`,
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Space Debris #${noradId}`,
+              description: `Dedicated to: ${exName}`,
+            },
+            unit_amount: Math.round(price * 100), // Convert to cents
           },
-          unit_amount: Math.round((price || 1.99) * 100),
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       mode: 'payment',
-      metadata: { 
-        noradId, 
-        type, 
-        stat, 
-        exName,
-        userEmail: userEmail || 'ANONYMOUS'
-      },
+      metadata: { noradId, type, stat, exName, userEmail },
       success_url: `${req.headers.origin}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.origin}/`,
     });
