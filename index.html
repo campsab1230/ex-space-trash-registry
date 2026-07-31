@@ -232,7 +232,16 @@
             "Orbits the earth every 90 minutes. Just like their excuses.",
             "Currently completely lost in space. Relatable."
         ];
-
+         const exSnarkQuotes = [
+            "STILL OWES ME $40 FOR TACOS",
+            "EMOTIONAL CAPACITY OF A PLASTIC SPOON",
+            "GHOSTED AFTER 2 YEARS OF DATING",
+            "BLAMED ASTROLOGY FOR CHEATING",
+            "STILL USES THEIR EX'S NETFLIX LOGIN",
+            "TALKS DURING THE BEST PARTS OF MOVIES",
+            "REPLIED TO 'I LOVE YOU' WITH 'THANK YOU'",
+            "LEAVES 3 SECONDS ON THE MICROWAVE"
+        ];
         // --- 3. LIVE REGISTRY (real data, fetched from Supabase) ---
         let liveGlobalRegistry = {};
         let selectedDebris = null;
@@ -288,7 +297,23 @@
 
         const trashPieces = [];
         const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
+function createHeartMesh() {
+            const heartShape = new THREE.Shape();
+            heartShape.moveTo(0, 0);
+            heartShape.bezierCurveTo(0, 0.3, -0.5, 0.6, -0.5, 0);
+            heartShape.bezierCurveTo(-0.5, -0.4, 0, -0.6, 0, -1.0);
+            heartShape.bezierCurveTo(0, -0.6, 0.5, -0.4, 0.5, 0);
+            heartShape.bezierCurveTo(0.5, 0.6, 0, 0.3, 0, 0);
 
+            const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+            const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+            const material = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3, metalness: 0.2 });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.scale.set(0.15, 0.15, 0.15);
+            mesh.rotation.x = Math.PI;
+            return mesh;
+        }
         // NOTE: These NORAD IDs are randomly generated placeholders, not verified
         // real catalog entries. Before launch, replace this pool with a fixed,
         // pre-vetted list of confirmed decommissioned debris IDs pulled once from
@@ -338,6 +363,27 @@ async function initLiveDebrisField() {
       scene.add(mesh);
       trashPieces.push(mesh);
     });
+     // Spawn floating broken heart snark debris
+        for (let i = 0; i < 8; i++) {
+            const heartMesh = createHeartMesh();
+            const radius = 2.0 + Math.random() * 1.5;
+            const angle = Math.random() * Math.PI * 2;
+
+            heartMesh.position.x = Math.cos(angle) * radius;
+            heartMesh.position.z = Math.sin(angle) * radius;
+            heartMesh.position.y = (Math.random() - 0.5) * 2;
+
+            heartMesh.userData = {
+                noradId: "HEART-" + (i + 1),
+                type: "BROKEN HEART DEBRIS",
+                stat: exSnarkQuotes[Math.floor(Math.random() * exSnarkQuotes.length)],
+                price: 1.99,
+                regime: "LEO"
+            };
+
+            scene.add(heartMesh);
+            trashPieces.push(heartMesh);
+        }
   } catch (err) {
     console.error("Failed to load CelesTrak objects:", err);
   }
