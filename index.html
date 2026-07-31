@@ -207,460 +207,458 @@
         </div>
     </div>
 
-    <script>
-        // --- 1. CONFIGURATION ---
-        const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
-        const _supabase = (SUPABASE_URL.indexOf('YOUR_') === -1) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-        // Serverless endpoints — see /api/create-checkout.js and /api/verify-session.js
-        const API_BASE = ''; // same-origin, e.g. deployed on Vercel alongside this file
-        let currentUser = null;
+   <script>
+    // --- 1. CONFIGURATION ---
+    const SUPABASE_URL = 'https://dmkkdmfougequdkqevdx.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
+    const _supabase = (SUPABASE_URL.indexOf('YOUR_') === -1) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    const API_BASE = ''; 
+    let currentUser = null;
 
-        // --- 2. COMEDY ARRAYS ---
-        const debrisTypes = [
-            "Something NASA insists wasn't important", "Probably from Russia",
-            "Definitely shouldn't still be up there", "Nobody remembers launching this",
-            "Frozen Coolant Leak", "Detached Rocket Bolt", "Dead Weather Satellite",
-            "Unidentified Metallic Slag"
-        ];
+    // --- 2. COMEDY ARRAYS ---
+    const debrisTypes = [
+      "Something NASA insists wasn't important",
+      "Probably from Russia",
+      "Definitely shouldn't still be up there",
+      "Nobody remembers launching this",
+      "Frozen Coolant Leak",
+      "Detached Rocket Bolt",
+      "Dead Weather Satellite",
+      "Unidentified Metallic Slag"
+    ];
 
-        const debrisStats = [
-            "Completed 147,000 trips around Earth.",
-            "Survived three presidents and your relationship didn't.",
-            "Moving 17,000 mph away from accountability.",
-            "Chances of reentry: Higher than your ex apologizing.",
-            "Orbits the earth every 90 minutes. Just like their excuses.",
-            "Currently completely lost in space. Relatable."
-        ];
-         const exSnarkQuotes = [
-            "STILL OWES ME $40 FOR TACOS",
-            "EMOTIONAL CAPACITY OF A PLASTIC SPOON",
-            "GHOSTED AFTER 2 YEARS OF DATING",
-            "BLAMED ASTROLOGY FOR CHEATING",
-            "STILL USES THEIR EX'S NETFLIX LOGIN",
-            "TALKS DURING THE BEST PARTS OF MOVIES",
-            "REPLIED TO 'I LOVE YOU' WITH 'THANK YOU'",
-            "LEAVES 3 SECONDS ON THE MICROWAVE"
-        ];
-        // --- 3. LIVE REGISTRY (real data, fetched from Supabase) ---
-        let liveGlobalRegistry = {};
-        let selectedDebris = null;
+    const debrisStats = [
+      "Completed 147,000 trips around Earth.",
+      "Survived three presidents and your relationship didn't.",
+      "Moving 17,000 mph away from accountability.",
+      "Chances of reentry: Higher than your ex apologizing.",
+      "Orbits the earth every 90 minutes. Just like their excuses.",
+      "Currently completely lost in space. Relatable."
+    ];
 
-        async function loadRegistry() {
-            if (!_supabase) return;
-            try {
-                const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name');
-                if (error) throw error;
-                liveGlobalRegistry = {};
-                (data || []).forEach(row => {
-                    liveGlobalRegistry[row.norad_id] = { exName: row.dedication_name, type: row.debris_name };
-                });
-            } catch (e) {
-                console.error('Failed to load registry', e);
-            }
-        }
+    const exSnarkQuotes = [
+      "STILL OWES ME $40 FOR TACOS",
+      "EMOTIONAL CAPACITY OF A PLASTIC SPOON",
+      "GHOSTED AFTER 2 YEARS OF DATING",
+      "BLAMED ASTROLOGY FOR CHEATING",
+      "STILL USES THEIR EX'S NETFLIX LOGIN",
+      "TALKS DURING THE BEST PARTS OF MOVIES",
+      "REPLIED TO 'I LOVE YOU' WITH 'THANK YOU'",
+      "LEAVES 3 SECONDS ON THE MICROWAVE"
+    ];
 
-        function updateTickerFeed() {
-            const entries = Object.values(liveGlobalRegistry);
-            if (entries.length === 0) {
-                document.getElementById('live-ticker').innerHTML = `<span class="highlight">AWAITING FIRST CLAIM...</span>`;
-                return;
-            }
-            const pick = entries[Math.floor(Math.random() * entries.length)];
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'highlight';
-            nameSpan.textContent = pick.exName;
-            const ticker = document.getElementById('live-ticker');
-            ticker.textContent = '🚀 ';
-            ticker.appendChild(nameSpan);
-            ticker.appendChild(document.createTextNode(` was assigned a ${pick.type.toLowerCase()}.`));
-        }
-        setInterval(updateTickerFeed, 6000);
+    // --- 3. LIVE REGISTRY ---
+    let liveGlobalRegistry = {};
+    let selectedDebris = null;
 
-        // --- 4. 3D RENDER ENGINE ---
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        document.getElementById('three-container').appendChild(renderer.domElement);
-        camera.position.z = 5.5;
-
-        const earth = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), new THREE.MeshPhongMaterial({ map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'), shininess: 10 }));
-        scene.add(earth);
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        sunLight.position.set(5, 3, 5);
-        scene.add(sunLight);
-        scene.add(new THREE.AmbientLight(0x222233, 0.8));
-
-        const trashPieces = [];
-        const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
-function createHeartMesh() {
-            const heartShape = new THREE.Shape();
-            heartShape.moveTo(0, 0);
-            heartShape.bezierCurveTo(0, 0.3, -0.5, 0.6, -0.5, 0);
-            heartShape.bezierCurveTo(-0.5, -0.4, 0, -0.6, 0, -1.0);
-            heartShape.bezierCurveTo(0, -0.6, 0.5, -0.4, 0.5, 0);
-            heartShape.bezierCurveTo(0.5, 0.6, 0, 0.3, 0, 0);
-
-            const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
-            const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
-            const material = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3, metalness: 0.2 });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.scale.set(0.15, 0.15, 0.15);
-            mesh.rotation.x = Math.PI;
-            return mesh;
-        }
-        // NOTE: These NORAD IDs are randomly generated placeholders, not verified
-        // real catalog entries. Before launch, replace this pool with a fixed,
-        // pre-vetted list of confirmed decommissioned debris IDs pulled once from
-        // space-track.org, so claims are stable across sessions and don't
-        // accidentally reference something that isn't actually junk.
-        // NOTE: These NORAD IDs are randomly generated placeholders...
-async function initLiveDebrisField() {
-  try {
-    const res = await fetch('/api/get-celestrak-debris');
-    const debrisList = await res.json();
-
-    debrisList.forEach((data) => {
-      const geo = new THREE.BufferGeometry();
-      const vertices = [];
-      for (let i = 0; i < 12; i++) {
-        vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
+    async function loadRegistry() {
+      if (!_supabase) return;
+      try {
+        const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name');
+        if (error) throw error;
+        liveGlobalRegistry = {};
+        (data || []).forEach(row => {
+          liveGlobalRegistry[row.norad_id] = { exName: row.dedication_name, type: row.debris_name };
+        });
+      } catch (e) {
+        console.error('Failed to load registry', e);
       }
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geo.computeVertexNormals();
-
-      const mesh = new THREE.Mesh(geo, metalMaterial);
-
-      // Convert Latitude/Longitude/Altitude into 3D Sphere Coordinates
-      const radius = 1.5 + Math.min(data.altKm / 4000, 4.0);
-      const phi = (90 - data.lat) * (Math.PI / 180);
-      const theta = (data.lng + 180) * (Math.PI / 180);
-
-      mesh.position.x = -(radius * Math.sin(phi) * Math.cos(theta));
-      mesh.position.z = (radius * Math.sin(phi) * Math.sin(theta));
-      mesh.position.y = (radius * Math.cos(phi));
-
-      mesh.userData = {
-        noradId: data.noradId,
-        type: data.officialName || "Decommissioned Payload",
-        stat: `${data.tierLabel || 'Debris'} | Alt: ${data.altKm.toLocaleString()} km`,
-        price: data.price || 1.99,
-        regime: data.regime || "LEO",
-        tierLabel: data.tierLabel,
-        isClaimed: data.isClaimed,
-        claimedBy: data.claimedBy
-      };
-
-      if (data.isClaimed) {
-        mesh.material = new THREE.MeshStandardMaterial({ color: 0xff5577, roughness: 0.5 });
-      }
-
-      scene.add(mesh);
-      trashPieces.push(mesh);
-    });
-     // Spawn floating broken heart snark debris
-        for (let i = 0; i < 8; i++) {
-            const heartMesh = createHeartMesh();
-            const radius = 2.0 + Math.random() * 1.5;
-            const angle = Math.random() * Math.PI * 2;
-
-            heartMesh.position.x = Math.cos(angle) * radius;
-            heartMesh.position.z = Math.sin(angle) * radius;
-            heartMesh.position.y = (Math.random() - 0.5) * 2;
-
-            heartMesh.userData = {
-                noradId: "HEART-" + (i + 1),
-                type: "BROKEN HEART DEBRIS",
-                stat: exSnarkQuotes[Math.floor(Math.random() * exSnarkQuotes.length)],
-                price: 1.99,
-                regime: "LEO"
-            };
-
-            scene.add(heartMesh);
-            trashPieces.push(heartMesh);
-        }
-  } catch (err) {
-    console.error("Failed to load CelesTrak objects:", err);
-  }
-}
-
-/**
- * Filters visible 3D space debris objects based on the selected orbit sector dropdown.
- */
-function filterDebrisByOrbit(selectedRegime) {
-  closeHud();
-
-  trashPieces.forEach((mesh) => {
-    if (selectedRegime === 'ALL' || mesh.userData.regime === selectedRegime) {
-      mesh.visible = true;
-    } else {
-      mesh.visible = false;
     }
-  });
 
-  // Adjust camera distance for high orbits
-  if (selectedRegime === 'GEO') {
-    camera.position.z = 8.0;
-  } else if (selectedRegime === 'LEO') {
-    camera.position.z = 4.8;
-  } else {
+    function updateTickerFeed() {
+      const entries = Object.values(liveGlobalRegistry);
+      if (entries.length === 0) {
+        document.getElementById('live-ticker').innerHTML = `<span class="highlight">AWAITING FIRST CLAIM...</span>`;
+        return;
+      }
+      const pick = entries[Math.floor(Math.random() * entries.length)];
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'highlight';
+      nameSpan.textContent = pick.exName;
+      const ticker = document.getElementById('live-ticker');
+      ticker.textContent = '🚀 ';
+      ticker.appendChild(nameSpan);
+      ticker.appendChild(document.createTextNode(` was assigned a ${pick.type.toLowerCase()}.`));
+    }
+    setInterval(updateTickerFeed, 6000);
+
+    // --- 4. 3D RENDER ENGINE ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.getElementById('three-container').appendChild(renderer.domElement);
+
     camera.position.z = 5.5;
-  }
-}
 
-// Call on startup
-initLiveDebrisField();
+    const earth = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 64, 64),
+      new THREE.MeshPhongMaterial({
+        map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'),
+        shininess: 10
+      })
+    );
+    scene.add(earth);
 
-        // --- 5. INTERACTION & MODALS ---
-        function inspectDebris(data) {
-            selectedDebris = data;
-            const isClaimed = liveGlobalRegistry[data.noradId];
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    sunLight.position.set(5, 3, 5);
+    scene.add(sunLight);
+    scene.add(new THREE.AmbientLight(0x222233, 0.8));
 
-            document.getElementById('hud-norad').innerText = `#${data.noradId}`;
-            document.getElementById('hud-type').innerText = data.type.toUpperCase();
-            document.getElementById('hud-stat').innerText = `"${data.stat}"`;
+    const trashPieces = [];
+    const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
 
-            const btn = document.getElementById('hud-checkout-btn');
+    function createHeartMesh() {
+      const heartShape = new THREE.Shape();
+      heartShape.moveTo(0, 0);
+      heartShape.bezierCurveTo(0, 0.3, -0.5, 0.6, -0.5, 0);
+      heartShape.bezierCurveTo(-0.5, -0.4, 0, -0.6, 0, -1.0);
+      heartShape.bezierCurveTo(0, -0.6, 0.5, -0.4, 0.5, 0);
+      heartShape.bezierCurveTo(0.5, 0.6, 0, 0.3, 0, 0);
 
-            if (isClaimed) {
-                document.getElementById('hud-status').innerText = "LOCKED";
-                document.getElementById('hud-status').className = "highlight";
-                document.getElementById('hud-assigned').innerText = isClaimed.exName;
-                btn.innerText = "ALREADY CLAIMED";
-                btn.disabled = true;
-                btn.style.background = "transparent";
-            } else {
-                document.getElementById('hud-status').innerText = "READY FOR ASSIGNMENT";
-                document.getElementById('hud-status').className = "";
-                document.getElementById('hud-assigned').innerText = "NONE";
-               btn.innerText = `CLAIM THIS TRASH // $${data.price.toFixed(2)}`;
-                btn.disabled = false;
-                btn.style.background = "#00f0ff";
-            }
-            document.getElementById('hud-panel').style.display = 'block';
-        }
+      const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+      const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+      const material = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3, metalness: 0.2 });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.scale.set(0.15, 0.15, 0.15);
+      mesh.rotation.x = Math.PI;
+      return mesh;
+    }
 
-        function closeHud() { document.getElementById('hud-panel').style.display = 'none'; }
+    async function initLiveDebrisField() {
+      // 1. Always spawn the floating broken heart debris first
+      for (let i = 0; i < 8; i++) {
+        const heartMesh = createHeartMesh();
+        const radius = 2.0 + Math.random() * 1.5;
+        const angle = Math.random() * Math.PI * 2;
+        heartMesh.position.x = Math.cos(angle) * radius;
+        heartMesh.position.z = Math.sin(angle) * radius;
+        heartMesh.position.y = (Math.random() - 0.5) * 2;
+        heartMesh.userData = {
+          noradId: "HEART-" + (i + 1),
+          type: "BROKEN HEART DEBRIS",
+          stat: exSnarkQuotes[Math.floor(Math.random() * exSnarkQuotes.length)],
+          price: 1.99,
+          regime: "LEO",
+          orbitRadius: radius,
+          angle: angle
+        };
+        scene.add(heartMesh);
+        trashPieces.push(heartMesh);
+      }
 
-        function getSanitizedExName() {
-            const raw = document.getElementById('ex-name-input').value.trim();
-            // Strip anything that isn't a letter, number, space, or basic punctuation.
-            const cleaned = raw.replace(/[^a-zA-Z0-9 .'-]/g, '').slice(0, 30);
-            return cleaned.length ? cleaned.toUpperCase() : "UNKNOWN";
-        }
+      // 2. Fetch CelesTrak objects if available
+      try {
+        const res = await fetch('/api/get-celestrak-debris');
+        if (!res.ok) throw new Error("API not available");
+        const debrisList = await res.json();
+        
+        debrisList.forEach((data) => {
+          const geo = new THREE.BufferGeometry();
+          const vertices = [];
+          for (let i = 0; i < 12; i++) {
+            vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
+          }
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+          geo.computeVertexNormals();
 
-        function renderCertText(exName) {
-            const container = document.getElementById('cert-text');
-            container.innerHTML = ''; // clear safely
+          const mesh = new THREE.Mesh(geo, metalMaterial);
+          const radius = 1.5 + Math.min(data.altKm / 4000, 4.0);
+          const angle = Math.random() * Math.PI * 2;
 
-            const line1 = document.createElement('div');
-            line1.innerHTML = `NORAD ID: <span class="highlight">#${selectedDebris.noradId}</span>`;
-            container.appendChild(line1);
+          mesh.position.x = Math.cos(angle) * radius;
+          mesh.position.z = Math.sin(angle) * radius;
+          mesh.position.y = (Math.random() - 0.5) * 2;
 
-            const line2 = document.createElement('div');
-            line2.style.marginTop = '10px';
-            line2.appendChild(document.createTextNode('This piece of trash will be officially and permanently associated with '));
-            const strong = document.createElement('strong');
-            strong.style.color = '#efc84e';
-            strong.style.fontSize = '1.2rem';
-            strong.textContent = exName; // textContent — never innerHTML — for user input
-            line2.appendChild(strong);
-            line2.appendChild(document.createTextNode('.'));
-            container.appendChild(line2);
-        }
+          mesh.userData = {
+            noradId: data.noradId,
+            type: data.officialName || "Decommissioned Payload",
+            stat: `${data.tierLabel || 'Debris'} | Alt: ${data.altKm.toLocaleString()} km`,
+            price: data.price || 1.99,
+            regime: data.regime || "LEO",
+            tierLabel: data.tierLabel,
+            isClaimed: data.isClaimed,
+            claimedBy: data.claimedBy,
+            orbitRadius: radius,
+            angle: angle
+          };
 
-        function openCertificateModal() {
-            if (!selectedDebris) return;
-            closeHud();
-            document.getElementById('ex-name-input').value = '';
-            document.getElementById('cert-text').innerHTML = '';
-            document.getElementById('certificate').style.display = 'block';
-        }
-
-        document.getElementById('ex-name-input').addEventListener('input', () => {
-            if (selectedDebris) renderCertText(getSanitizedExName());
+          if (data.isClaimed) {
+            mesh.material = new THREE.MeshStandardMaterial({ color: 0xff5577, roughness: 0.5 });
+          }
+          scene.add(mesh);
+          trashPieces.push(mesh);
         });
+      } catch (err) {
+        console.warn("Using fallback broken heart objects; CelesTrak debris API not reachable yet.");
+      }
+    }
 
-        // --- 6. CHECKOUT: create a real Stripe Checkout Session server-side ---
-        async function startCheckout() {
-            if (!selectedDebris) return;
-            const exName = getSanitizedExName();
-            const btn = document.getElementById('checkout-button');
-            btn.disabled = true;
-            btn.innerText = "REDIRECTING...";
-
-            try {
-             const res = await fetch(`${API_BASE}/api/create-checkout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    noradId: selectedDebris.noradId,
-    type: selectedDebris.type,
-    stat: selectedDebris.stat,
-    exName: exName,
-    price: selectedDebris.price // Pass dynamic price to Stripe
-  })
-});
-                if (!res.ok) throw new Error('Checkout session creation failed');
-                const { url } = await res.json();
-                window.location.href = url; // Stripe-hosted checkout page
-            } catch (err) {
-                console.error(err);
-                alert('Something went wrong starting checkout. Please try again.');
-                btn.disabled = false;
-                btn.innerText = "CONFIRM PAYMENT ($1.99)";
-            }
+    function filterDebrisByOrbit(selectedRegime) {
+      closeHud();
+      trashPieces.forEach((mesh) => {
+        if (selectedRegime === 'ALL' || mesh.userData.regime === selectedRegime) {
+          mesh.visible = true;
+        } else {
+          mesh.visible = false;
         }
+      });
+      if (selectedRegime === 'GEO') {
+        camera.position.z = 8.0;
+      } else if (selectedRegime === 'LEO') {
+        camera.position.z = 4.8;
+      } else {
+        camera.position.z = 5.5;
+      }
+    }
 
-        // --- 7. PREVIEW & EXPORT LOGIC ---
-        async function generatePreview() {
-            if (!selectedDebris) return;
-            const exName = getSanitizedExName();
-            const previewModal = document.getElementById('preview-modal');
-            const loadingText = document.getElementById('preview-loading');
-            const imgContainer = document.getElementById('preview-image-container');
-            const imgResult = document.getElementById('preview-image-result');
+    initLiveDebrisField();
 
-            previewModal.style.display = 'block';
-            loadingText.style.display = 'block';
-            imgContainer.style.display = 'none';
+    // --- 5. INTERACTION & MODALS ---
+    function inspectDebris(data) {
+      selectedDebris = data;
+      const isClaimed = liveGlobalRegistry[data.noradId];
+      document.getElementById('hud-norad').innerText = `#${data.noradId}`;
+      document.getElementById('hud-type').innerText = data.type.toUpperCase();
+      document.getElementById('hud-stat').innerText = `"${data.stat}"`;
 
-            document.getElementById('export-ex-name').innerText = exName;
-            document.getElementById('export-id').innerText = `#${selectedDebris.noradId}`;
-            document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
-            document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
+      const btn = document.getElementById('hud-checkout-btn');
+      if (isClaimed) {
+        document.getElementById('hud-status').innerText = "LOCKED";
+        document.getElementById('hud-status').className = "highlight";
+        document.getElementById('hud-assigned').innerText = isClaimed.exName;
+        btn.innerText = "ALREADY CLAIMED";
+        btn.disabled = true;
+        btn.style.background = "transparent";
+      } else {
+        document.getElementById('hud-status').innerText = "READY FOR ASSIGNMENT";
+        document.getElementById('hud-status').className = "";
+        document.getElementById('hud-assigned').innerText = "NONE";
+        btn.innerText = `CLAIM THIS TRASH // $${data.price.toFixed(2)}`;
+        btn.disabled = false;
+        btn.style.background = "#00f0ff";
+      }
+      document.getElementById('hud-panel').style.display = 'block';
+    }
 
-            const certElement = document.getElementById('export-cert');
-            certElement.style.left = '0px';
+    function closeHud() {
+      document.getElementById('hud-panel').style.display = 'none';
+    }
 
-            try {
-                const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
-                imgResult.src = canvas.toDataURL('image/png');
-                loadingText.style.display = 'none';
-                imgContainer.style.display = 'block';
-            } catch (err) {
-                console.error(err);
-                loadingText.innerText = 'Preview failed to generate. Please try again.';
-            } finally {
-                certElement.style.left = '-9999px';
-            }
-        }
+    function getSanitizedExName() {
+      const raw = document.getElementById('ex-name-input').value.trim();
+      const cleaned = raw.replace(/[^a-zA-Z0-9 .'-]/g, '').slice(0, 30);
+      return cleaned.length ? cleaned.toUpperCase() : "UNKNOWN";
+    }
 
-        async function downloadCertificateImage(noradId, type, stat, exName) {
-            const btn = document.getElementById('download-cert-btn');
-            btn.innerText = "GENERATING...";
+    function renderCertText(exName) {
+      const container = document.getElementById('cert-text');
+      container.innerHTML = '';
+      const line1 = document.createElement('div');
+      line1.innerHTML = `NORAD ID: <span class="highlight">#${selectedDebris.noradId}</span>`;
+      container.appendChild(line1);
 
-            document.getElementById('export-ex-name').innerText = exName;
-            document.getElementById('export-id').innerText = `#${noradId}`;
-            document.getElementById('export-type').innerText = type.toUpperCase();
-            document.getElementById('export-stat').innerText = `"${stat}"`;
+      const line2 = document.createElement('div');
+      line2.style.marginTop = '10px';
+      line2.appendChild(document.createTextNode('This piece of trash will be officially and permanently associated with '));
+      const strong = document.createElement('strong');
+      strong.style.color = '#efc84e';
+      strong.style.fontSize = '1.2rem';
+      strong.textContent = exName;
+      line2.appendChild(strong);
+      line2.appendChild(document.createTextNode('.'));
+      container.appendChild(line2);
+    }
 
-            const certElement = document.getElementById('export-cert');
-            certElement.style.left = '0px';
+    function openCertificateModal() {
+      if (!selectedDebris) return;
+      closeHud();
+      document.getElementById('ex-name-input').value = '';
+      document.getElementById('cert-text').innerHTML = '';
+      document.getElementById('certificate').style.display = 'block';
+    }
 
-            try {
-                const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
-                const link = document.createElement('a');
-                link.download = `SpaceTrash_NORAD_${noradId}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                btn.innerText = "DOWNLOAD COMPLETE!";
-                setTimeout(() => { btn.innerText = "📸 DOWNLOAD CERTIFICATE FOR SOCIALS"; }, 3000);
-            } catch (err) {
-                console.error(err);
-                btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
-            } finally {
-                certElement.style.left = '-9999px';
-            }
-        }
+    document.getElementById('ex-name-input').addEventListener('input', () => {
+      if (selectedDebris) renderCertText(getSanitizedExName());
+    });
 
-        // --- 8. POST-PURCHASE VERIFICATION ---
-        // Stripe redirects back to success_url with a real session_id. We ask our
-        // own server to confirm with Stripe's API that the session actually paid
-        // before we ever write to the registry or show the success modal. This is
-        // the piece that makes claims trustworthy — a URL parameter alone proves
-        // nothing.
-        window.addEventListener('DOMContentLoaded', async () => {
-            await loadRegistry();
-            updateTickerFeed();
-
-            const params = new URLSearchParams(window.location.search);
-            const sessionId = params.get('session_id');
-            if (!sessionId) return;
-
-            document.getElementById('verifying-modal').style.display = 'block';
-
-            try {
-                const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
-                if (!res.ok) throw new Error('Verification request failed');
-                const result = await res.json();
-
-                if (!result.paid) {
-                    document.getElementById('verifying-modal').style.display = 'none';
-                    alert('We could not confirm payment for this session. If you were charged, contact support.');
-                    return;
-                }
-
-                // result.metadata comes back from Stripe (set server-side at
-                // session creation), not from anything the client controls.
-                const { noradId, type, stat, exName } = result.metadata;
-
-                if (_supabase) {
-                    // norad_id should have a UNIQUE constraint in Supabase so a
-                    // race between two buyers on the same debris fails safely.
-                    const { error } = await _supabase.from('global_registry').insert([{
-                        norad_id: noradId, debris_name: type, dedication_name: exName, stripe_session_id: sessionId
-                    }]);
-                    if (error && error.code !== '23505') { // ignore unique-violation duplicates
-                        console.error(error);
-                    }
-                }
-
-                window.history.replaceState({}, document.title, window.location.pathname);
-                await loadRegistry();
-
-                document.getElementById('verifying-modal').style.display = 'none';
-                document.getElementById('success-name').innerText = exName;
-                document.getElementById('download-cert-btn').onclick = () => {
-                    downloadCertificateImage(noradId, type, stat, exName);
-                };
-                document.getElementById('success-modal').style.display = 'block';
-            } catch (err) {
-                console.error(err);
-                document.getElementById('verifying-modal').style.display = 'none';
-                alert('Something went wrong verifying your payment. Contact support with your session ID: ' + sessionId);
-            }
+    // --- 6. CHECKOUT ---
+    async function startCheckout() {
+      if (!selectedDebris) return;
+      const exName = getSanitizedExName();
+      const btn = document.getElementById('checkout-button');
+      btn.disabled = true;
+      btn.innerText = "REDIRECTING...";
+      try {
+        const res = await fetch(`${API_BASE}/api/create-checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            noradId: selectedDebris.noradId,
+            type: selectedDebris.type,
+            stat: selectedDebris.stat,
+            exName: exName,
+            price: selectedDebris.price
+          })
         });
+        if (!res.ok) throw new Error('Checkout session creation failed');
+        const { url } = await res.json();
+        window.location.href = url;
+      } catch (err) {
+        console.error(err);
+        alert('Something went wrong starting checkout. Please try again.');
+        btn.disabled = false;
+        btn.innerText = "CONFIRM PAYMENT ($1.99)";
+      }
+    }
 
-        // Loop animation
-        function animate() {
-            requestAnimationFrame(animate);
-            earth.rotation.y += 0.0005;
-            trashPieces.forEach(t => {
-                t.userData.angle += 0.0012;
-                t.position.x = Math.cos(t.userData.angle) * t.userData.orbitRadius;
-                t.position.z = Math.sin(t.userData.angle) * t.userData.orbitRadius;
-                t.position.y = Math.sin(t.userData.angle * 2) * 0.3;
-                t.rotation.x += 0.01;
-            });
-            renderer.render(scene, camera);
+    // --- 7. PREVIEW & EXPORT ---
+    async function generatePreview() {
+      if (!selectedDebris) return;
+      const exName = getSanitizedExName();
+      const previewModal = document.getElementById('preview-modal');
+      const loadingText = document.getElementById('preview-loading');
+      const imgContainer = document.getElementById('preview-image-container');
+      const imgResult = document.getElementById('preview-image-result');
+
+      previewModal.style.display = 'block';
+      loadingText.style.display = 'block';
+      imgContainer.style.display = 'none';
+
+      document.getElementById('export-ex-name').innerText = exName;
+      document.getElementById('export-id').innerText = `#${selectedDebris.noradId}`;
+      document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
+      document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
+
+      const certElement = document.getElementById('export-cert');
+      certElement.style.left = '0px';
+
+      try {
+        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
+        imgResult.src = canvas.toDataURL('image/png');
+        loadingText.style.display = 'none';
+        imgContainer.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        loadingText.innerText = 'Preview failed to generate. Please try again.';
+      } finally {
+        certElement.style.left = '-9999px';
+      }
+    }
+
+    async function downloadCertificateImage(noradId, type, stat, exName) {
+      const btn = document.getElementById('download-cert-btn');
+      btn.innerText = "GENERATING...";
+
+      document.getElementById('export-ex-name').innerText = exName;
+      document.getElementById('export-id').innerText = `#${noradId}`;
+      document.getElementById('export-type').innerText = type.toUpperCase();
+      document.getElementById('export-stat').innerText = `"${stat}"`;
+
+      const certElement = document.getElementById('export-cert');
+      certElement.style.left = '0px';
+
+      try {
+        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
+        const link = document.createElement('a');
+        link.download = `SpaceTrash_NORAD_${noradId}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.innerText = "DOWNLOAD COMPLETE!";
+        setTimeout(() => {
+          btn.innerText = "📸 DOWNLOAD CERTIFICATE FOR SOCIALS";
+        }, 3000);
+      } catch (err) {
+        console.error(err);
+        btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
+      } finally {
+        certElement.style.left = '-9999px';
+      }
+    }
+
+    // --- 8. POST-PURCHASE VERIFICATION ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadRegistry();
+      updateTickerFeed();
+
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+      if (!sessionId) return;
+
+      document.getElementById('verifying-modal').style.display = 'block';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+        if (!res.ok) throw new Error('Verification request failed');
+        const result = await res.json();
+
+        if (!result.paid) {
+          document.getElementById('verifying-modal').style.display = 'none';
+          alert('We could not confirm payment for this session. If you were charged, contact support.');
+          return;
         }
 
-        window.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('#ui') || e.target.closest('#hud-panel') || e.target.closest('.modal')) return;
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(trashPieces);
-            if (intersects.length > 0) inspectDebris(intersects[0].object.userData);
-        });
+        const { noradId, type, stat, exName } = result.metadata;
+        if (_supabase) {
+          const { error } = await _supabase.from('global_registry').insert([
+            { norad_id: noradId, debris_name: type, dedication_name: exName, stripe_session_id: sessionId }
+          ]);
+          if (error && error.code !== '23505') {
+            console.error(error);
+          }
+        }
 
-        animate();
-    </script>
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await loadRegistry();
+
+        document.getElementById('verifying-modal').style.display = 'none';
+        document.getElementById('success-name').innerText = exName;
+        document.getElementById('download-cert-btn').onclick = () => {
+          downloadCertificateImage(noradId, type, stat, exName);
+        };
+        document.getElementById('success-modal').style.display = 'block';
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('verifying-modal').style.display = 'none';
+        alert('Something went wrong verifying your payment. Contact support with your session ID: ' + sessionId);
+      }
+    });
+
+    // --- 9. ANIMATION LOOP ---
+    function animate() {
+      requestAnimationFrame(animate);
+      earth.rotation.y += 0.0005;
+
+      trashPieces.forEach(t => {
+        if (t.userData.orbitRadius !== undefined && t.userData.angle !== undefined) {
+          t.userData.angle += 0.0012;
+          t.position.x = Math.cos(t.userData.angle) * t.userData.orbitRadius;
+          t.position.z = Math.sin(t.userData.angle) * t.userData.orbitRadius;
+          t.position.y = Math.sin(t.userData.angle * 2) * 0.3;
+          t.rotation.x += 0.01;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#ui') || e.target.closest('#hud-panel') || e.target.closest('.modal')) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(trashPieces);
+
+      if (intersects.length > 0) inspectDebris(intersects[0].object.userData);
+    });
+
+    animate();
+  </script>
 </body>
 </html>
