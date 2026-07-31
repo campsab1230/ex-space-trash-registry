@@ -328,8 +328,8 @@
       return mesh;
     }
 
-    async function initLiveDebrisField() {
-      // 1. Always spawn the floating broken heart debris first
+   async function initLiveDebrisField() {
+      // 1. Spawn floating broken heart debris
       for (let i = 0; i < 8; i++) {
         const heartMesh = createHeartMesh();
         const radius = 2.0 + Math.random() * 1.5;
@@ -350,68 +350,79 @@
         trashPieces.push(heartMesh);
       }
 
-      // 2. Fetch CelesTrak objects if available
-      try {
-        const res = await fetch('/api/get-celestrak-debris');
-        if (!res.ok) throw new Error("API not available");
-        const debrisList = await res.json();
-        
-        debrisList.forEach((data) => {
-          const geo = new THREE.BufferGeometry();
-          const vertices = [];
-          for (let i = 0; i < 12; i++) {
-            vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
-          }
-          geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-          geo.computeVertexNormals();
+      // 2. Helper function to generate trash meshes with tier pricing
+      function createDebrisItem(noradId, name, regime, radius, price, stat) {
+        const geo = new THREE.BufferGeometry();
+        const vertices = [];
+        for (let i = 0; i < 12; i++) {
+          vertices.push((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15);
+        }
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geo.computeVertexNormals();
 
-          const mesh = new THREE.Mesh(geo, metalMaterial);
-          const radius = 1.5 + Math.min(data.altKm / 4000, 4.0);
-          const angle = Math.random() * Math.PI * 2;
+        const mesh = new THREE.Mesh(geo, metalMaterial);
+        const angle = Math.random() * Math.PI * 2;
 
-          mesh.position.x = Math.cos(angle) * radius;
-          mesh.position.z = Math.sin(angle) * radius;
-          mesh.position.y = (Math.random() - 0.5) * 2;
+        mesh.position.x = Math.cos(angle) * radius;
+        mesh.position.z = Math.sin(angle) * radius;
+        mesh.position.y = (Math.random() - 0.5) * 2.5;
 
-          mesh.userData = {
-            noradId: data.noradId,
-            type: data.officialName || "Decommissioned Payload",
-            stat: `${data.tierLabel || 'Debris'} | Alt: ${data.altKm.toLocaleString()} km`,
-            price: data.price || 1.99,
-            regime: data.regime || "LEO",
-            tierLabel: data.tierLabel,
-            isClaimed: data.isClaimed,
-            claimedBy: data.claimedBy,
-            orbitRadius: radius,
-            angle: angle
-          };
+        mesh.userData = {
+          noradId: noradId,
+          type: name,
+          stat: stat || debrisStats[Math.floor(Math.random() * debrisStats.length)],
+          price: price,
+          regime: regime,
+          orbitRadius: radius,
+          angle: angle
+        };
 
-          if (data.isClaimed) {
-            mesh.material = new THREE.MeshStandardMaterial({ color: 0xff5577, roughness: 0.5 });
-          }
-          scene.add(mesh);
-          trashPieces.push(mesh);
-        });
-      } catch (err) {
-        console.warn("Using fallback broken heart objects; CelesTrak debris API not reachable yet.");
+        scene.add(mesh);
+        trashPieces.push(mesh);
       }
-    }
 
-    function filterDebrisByOrbit(selectedRegime) {
-      closeHud();
-      trashPieces.forEach((mesh) => {
-        if (selectedRegime === 'ALL' || mesh.userData.regime === selectedRegime) {
-          mesh.visible = true;
-        } else {
-          mesh.visible = false;
+      // 3. Fallback space trash objects across LEO, MEO, and GEO
+      const orbitPresets = [
+        // LEO ($1.99) - Radius 1.8 to 2.5
+        { count: 12, regime: 'LEO', radiusMin: 1.8, radiusMax: 2.5, price: 1.99, prefix: 20000 },
+        // MEO ($5.99) - Radius 3.0 to 4.5
+        { count: 10, regime: 'MEO', radiusMin: 3.0, radiusMax: 4.5, price: 5.99, prefix: 30000 },
+        // GEO ($9.99) - Radius 5.5 to 7.0
+        { count: 8, regime: 'GEO', radiusMin: 5.5, radiusMax: 7.0, price: 9.99, prefix: 40000 }
+      ];
+
+      orbitPresets.forEach(preset => {
+        for (let i = 0; i < preset.count; i++) {
+          const norad = preset.prefix + Math.floor(Math.random() * 9000);
+          const type = debrisTypes[Math.floor(Math.random() * debrisTypes.length)];
+          const radius = preset.radiusMin + Math.random() * (preset.radiusMax - preset.radiusMin);
+          createDebrisItem(norad, type, preset.regime, radius, preset.price);
         }
       });
-      if (selectedRegime === 'GEO') {
-        camera.position.z = 8.0;
-      } else if (selectedRegime === 'LEO') {
-        camera.position.z = 4.8;
-      } else {
-        camera.position.z = 5.5;
+
+      // 4. Optionally augment with live CelesTrak API if backend is active
+      try {
+        const res = await fetch('/api/get-celestrak-debris');
+        if (res.ok) {
+          const debrisList = await res.json();
+          debrisList.forEach((data) => {
+            let price = 1.99;
+            if (data.regime === 'MEO') price = 5.99;
+            if (data.regime === 'GEO') price = 9.99;
+
+            const radius = 1.8 + Math.min((data.altKm || 1000) / 5000, 5.5);
+            createDebrisItem(
+              data.noradId, 
+              data.officialName || "Decommissioned Satellite", 
+              data.regime || "LEO", 
+              radius, 
+              price, 
+              `${data.tierLabel || 'Space Debris'} | Alt: ${(data.altKm || 0).toLocaleString()} km`
+            );
+          });
+        }
+      } catch (err) {
+        console.warn("CelesTrak live feed fallback active.");
       }
     }
 
