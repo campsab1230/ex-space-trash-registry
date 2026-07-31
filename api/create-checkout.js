@@ -76,7 +76,7 @@ module.exports = async (req, res) => {
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,
       customer_email: (userEmail && String(userEmail).includes('@')) ? userEmail : undefined,
-      expires_at: Math.floor((Date.now() + PENDING_CLAIM_TTL_MS) / 1000),
+      expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000), // Stripe minimum is 30 min,
     });
 
     // 4. Lock the object while checkout is in progress
