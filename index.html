@@ -86,8 +86,9 @@
 
                 <label class="field-label" for="noradSearch">FIND SPECIFIC DEBRIS</label>
                 <div class="search-row">
-                    <input type="text" id="noradSearch" placeholder="Search NORAD ID or name..." oninput="filterDropdownBySearch(this.value)" />
+                    <input type="text" id="noradSearch" placeholder="Search NORAD ID or name..." oninput="filterDropdownBySearch(this.value)" onkeydown="handleSearchKeydown(event)" />
                 </div>
+                <div id="search-match-count" style="font-size: 0.7rem; color: #555; margin-top: 2px;"></div>
                 <div class="search-row">
                     <select id="trashDropdown" onchange="selectFromDropdown(this.value)">
                         <option value="">-- Choose an Object --</option>
@@ -458,14 +459,40 @@
     function filterDropdownBySearch(query) {
       const q = query.trim().toLowerCase();
       const dropdown = document.getElementById('trashDropdown');
+      const countLabel = document.getElementById('search-match-count');
+      let visibleOptions = [];
+
       Array.from(dropdown.options).forEach(opt => {
         if (!opt.value) return;
-        opt.hidden = q.length > 0 && !opt.textContent.toLowerCase().includes(q);
+        const matches = q.length === 0 || opt.textContent.toLowerCase().includes(q);
+        opt.hidden = !matches;
+        if (matches) visibleOptions.push(opt);
       });
+
+      if (q.length === 0) {
+        countLabel.textContent = '';
+        return;
+      }
+
+      countLabel.textContent = `${visibleOptions.length} match${visibleOptions.length === 1 ? '' : 'es'}`;
+
+      // If typing narrows it to exactly one object, pull it up immediately —
+      // don't make the person also open the dropdown to see the result.
+      if (visibleOptions.length === 1) {
+        selectFromDropdown(visibleOptions[0].value);
+      }
+    }
+
+    function handleSearchKeydown(event) {
+      if (event.key !== 'Enter') return;
+      const dropdown = document.getElementById('trashDropdown');
+      const firstVisible = Array.from(dropdown.options).find(opt => opt.value && !opt.hidden);
+      if (firstVisible) selectFromDropdown(firstVisible.value);
     }
 
     function selectFromDropdown(noradId) {
       if (!noradId) return;
+      document.getElementById('trashDropdown').value = noradId;
       const mesh = trashPieces.find(m => m.userData.noradId === noradId);
       if (mesh) inspectDebris(mesh.userData);
     }
