@@ -7,10 +7,18 @@
 // — that's what makes a "claim" mean something, instead of being a random
 // number regenerated on every page load.
 //
+// IMPORTANT: because we only render a random SAMPLE of the full catalog
+// (there are thousands of debris fragments — rendering all of them would
+// crash the browser), an object that's already been CLAIMED must be pinned
+// into every response regardless of the random draw. Otherwise a buyer's
+// own purchase could silently vanish from the scene the next time the
+// cache refreshes and pulls a different random sample — which is exactly
+// what was happening before this fix.
+//
 // Deploy target: Vercel serverless function (Node.js runtime).
-// If you deploy elsewhere (Netlify, Cloudflare Workers, a plain Express
-// server), the fetch/caching logic is the same — only the export shape
-// (module.exports vs. a route handler) needs to change.
+
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // Debris-specific groups (all LEO collision/ASAT clouds — great debris flavor,
 // but none of them reach past ~1,000km, which is why MEO/GEO never appeared).
@@ -52,6 +60,18 @@ function classifyRegime(altKm) {
   if (altKm > 35000) return 'GEO';
   if (altKm > 2000) return 'MEO';
   return 'LEO';
+}
+
+// Best-effort recovery of altitude/regime from a registry row's stored
+// `stat` text (e.g. "COSMOS 2251 DEBRIS • Alt: 673 km") for the rare case
+// where a claimed object can no longer be found in the live CelesTrak
+// groups (catalog reshuffle, decayed object, etc.) — better to show it
+// with a recovered/best-guess altitude than to drop it from the scene.
+function recoverAltFromStat(stat) {
+  if (!stat) return null;
+  const match = String(stat).match(/Alt:\s*([\d,]+)\s*km/i);
+  if (!match) return null;
+  return parseInt(match[1].replace(/,/g, ''), 10);
 }
 
 module.exports = async (req, res) => {
@@ -126,6 +146,57 @@ module.exports = async (req, res) => {
       regime: o.regime,
       tierLabel: (o.sourceGroup || 'debris').replace(/-/g, ' ').toUpperCase()
     }));
+
+    // -------------------------------------------------------------------
+    // Pin every already-claimed object into the response, regardless of
+    // whether the random sample above happened to include it. This is
+    // what stops a buyer's own purchase from disappearing from the scene.
+    // -------------------------------------------------------------------
+    let claimedRows = [];
+    try {
+      const { data, error } = await supabase
+        .from('global_registry')
+        .select('norad_id, debris_name, stat');
+      if (error) throw error;
+      claimedRows = data || [];
+    } catch (claimedErr) {
+      // If this lookup fails, we still return the normal sample rather
+      // than failing the whole endpoint — pinning is a "nice to have"
+      // layered on top, not a hard dependency for the scene to render.
+      console.error('Failed to fetch claimed items for pinning:', claimedErr.message);
+    }
+
+    const alreadyIncluded = new Set(processed.map(o => String(o.noradId)));
+
+    for (const row of claimedRows) {
+      const noradIdStr = String(row.norad_id);
+      if (alreadyIncluded.has(noradIdStr)) continue; // already in the sample, nothing to do
+
+      // First choice: find this exact object in the full live-fetched set
+      // (not just the random sample) so it gets a real, current altitude.
+      const liveMatch = withAltitude.find(o => String(o.NORAD_CAT_ID) === noradIdStr);
+      if (liveMatch) {
+        processed.push({
+          noradId: liveMatch.NORAD_CAT_ID,
+          officialName: liveMatch.OBJECT_NAME || row.debris_name || 'Unidentified Object',
+          altKm: liveMatch.altKm,
+          regime: liveMatch.regime,
+          tierLabel: (liveMatch.sourceGroup || 'debris').replace(/-/g, ' ').toUpperCase()
+        });
+      } else {
+        // Fallback: object no longer surfaced by our live groups — recover
+        // what we can from the registry's own stored data so it still shows.
+        const recoveredAlt = recoverAltFromStat(row.stat);
+        processed.push({
+          noradId: row.norad_id,
+          officialName: row.debris_name || 'Unidentified Object',
+          altKm: recoveredAlt,
+          regime: recoveredAlt ? classifyRegime(recoveredAlt) : 'LEO',
+          tierLabel: 'CLAIMED RECORD'
+        });
+      }
+      alreadyIncluded.add(noradIdStr);
+    }
 
     cache = { data: processed, timestamp: Date.now() };
     return res.status(200).json(processed);
