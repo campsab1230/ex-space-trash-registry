@@ -152,6 +152,12 @@
             <input type="text" id="ex-name-input" class="name-input" maxlength="30" placeholder="EX'S NAME" />
         </div>
 
+        <div style="text-align:left; margin: 15px 0;">
+            <label style="font-size: 0.85rem; color: #8ab4f8;">CUSTOM MESSAGE (OPTIONAL)</label>
+            <input type="text" id="custom-message-input" class="name-input" maxlength="25" placeholder="e.g. NICE KNOWING YOU" style="text-transform: none; color: #4ef2d2;" />
+            <div style="text-align:right; font-size: 0.7rem; color: #555; margin-top: 4px;"><span id="message-char-count">0</span>/25</div>
+        </div>
+
         <div id="cert-text" style="line-height: 1.6; font-size: 0.95rem; margin: 15px 0; text-align: left; font-family: monospace; background: rgba(0,0,0,0.5); padding: 15px; border-left: 3px solid #4ef2d2;"></div>
 
         <button id="preview-btn" onclick="generatePreview()" style="border-color: #00f0ff; color: #00f0ff; margin-bottom: 10px;">👀 PREVIEW SOCIAL CERTIFICATE</button>
@@ -186,7 +192,21 @@
         <button id="download-cert-btn" style="background: #efc84e; color: #000; border: none; padding: 15px; font-size: 1.1rem; box-shadow: 0 0 15px #efc84e; margin-bottom: 15px;">
             📸 DOWNLOAD CERTIFICATE FOR SOCIALS
         </button>
+        <button id="share-cert-btn" style="border-color: #00f0ff; color: #00f0ff;" onclick="shareCertificate()">
+            🔗 SHARE
+        </button>
         <button class="close-btn" onclick="document.getElementById('success-modal').style.display='none'">RETURN TO RADAR</button>
+    </div>
+
+    <!-- Share Menu Modal (fallback for browsers without native share) -->
+    <div id="share-modal" class="modal" style="max-width: 400px; text-align: center; border-color: #00f0ff; z-index: 160;">
+        <h3 style="color: #00f0ff; margin-top: 0; letter-spacing: 1px;">SHARE THIS</h3>
+        <p style="font-size: 0.8rem; color: #8ab4f8; margin-bottom: 15px;">Post your ex's new address in the cosmos.</p>
+        <button onclick="shareToPlatform('twitter')" style="border-color:#4ef2d2;">SHARE TO X / TWITTER</button>
+        <button onclick="shareToPlatform('facebook')" style="border-color:#4ef2d2;">SHARE TO FACEBOOK</button>
+        <button onclick="shareToPlatform('whatsapp')" style="border-color:#4ef2d2;">SHARE TO WHATSAPP</button>
+        <button onclick="copyShareLink()" style="border-color:#efc84e; color:#efc84e;">📋 COPY LINK</button>
+        <button class="close-btn" onclick="document.getElementById('share-modal').style.display='none'">CLOSE</button>
     </div>
 
     <!-- Verifying payment modal -->
@@ -203,6 +223,7 @@
             <p style="font-size: 1.4rem; color: #ccc;">After extensive review, NORAD object <span id="export-id" style="color: #4ef2d2;">--</span></p>
             <p style="font-size: 1.4rem; color: #ccc;">has officially been associated with</p>
             <h2 id="export-ex-name" style="color: #efc84e; font-size: 4.5rem; margin: 15px 0; text-transform: uppercase; text-shadow: 0 0 15px #efc84e;">--</h2>
+            <p id="export-message" style="font-size: 1.6rem; color: #4ef2d2; margin: 10px 0; font-style: italic; display: none;">"--"</p>
             <p style="font-size: 1.4rem; color: #ccc;">for all eternity.*</p>
             <p style="font-size: 0.9rem; color: #888; margin-top: 15px;">*or until the Sun explodes.</p>
         </div>
@@ -466,6 +487,7 @@
     // 7. INTERACTION & MODALS
     // =====================================================================
     let selectedDebris = null;
+    let lastCertData = null; // { noradId, type, stat, exName } — set after a successful purchase, used by Share
 
     function inspectDebris(data) {
       selectedDebris = data;
@@ -504,7 +526,14 @@
       return cleaned.length ? cleaned.toUpperCase() : "UNKNOWN";
     }
 
-    function renderCertText(exName) {
+    function getSanitizedMessage() {
+      const raw = document.getElementById('custom-message-input').value.trim();
+      // Slightly more permissive than the name field (allows ! and ?) but still
+      // strips anything that isn't plain text — no HTML, no script-y characters.
+      return raw.replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
+    }
+
+    function renderCertText(exName, message) {
       const container = document.getElementById('cert-text');
       container.innerHTML = '';
       const line1 = document.createElement('div');
@@ -525,20 +554,36 @@
       line2.appendChild(strong);
       line2.appendChild(document.createTextNode('.'));
       container.appendChild(line2);
+
+      if (message) {
+        const line3 = document.createElement('div');
+        line3.style.marginTop = '10px';
+        line3.style.color = '#4ef2d2';
+        line3.style.fontStyle = 'italic';
+        line3.textContent = `"${message}"`;
+        container.appendChild(line3);
+      }
     }
 
     function openCertificateModal() {
       if (!selectedDebris) return;
       closeHud();
       document.getElementById('ex-name-input').value = '';
+      document.getElementById('custom-message-input').value = '';
+      document.getElementById('message-char-count').textContent = '0';
       document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       document.getElementById('checkout-button').disabled = false;
-      renderCertText('UNKNOWN');
+      renderCertText('UNKNOWN', '');
       document.getElementById('certificate').style.display = 'block';
     }
 
     document.getElementById('ex-name-input').addEventListener('input', () => {
-      if (selectedDebris) renderCertText(getSanitizedExName());
+      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+    });
+
+    document.getElementById('custom-message-input').addEventListener('input', (e) => {
+      document.getElementById('message-char-count').textContent = String(getSanitizedMessage().length);
+      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
     });
 
     function showError(msg) {
@@ -556,6 +601,7 @@
     async function startCheckout() {
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
+      const customMessage = getSanitizedMessage();
       const btn = document.getElementById('checkout-button');
       btn.disabled = true;
       btn.innerText = "REDIRECTING...";
@@ -568,6 +614,7 @@
             type: selectedDebris.type,
             stat: selectedDebris.stat,
             exName: exName,
+            customMessage: customMessage,
             price: selectedDebris.price,
             userEmail: currentUser
           })
@@ -594,9 +641,20 @@
     // =====================================================================
     // 9. PREVIEW & EXPORT
     // =====================================================================
+    function setExportMessage(message) {
+      const el = document.getElementById('export-message');
+      if (message) {
+        el.textContent = `"${message}"`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
     async function generatePreview() {
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
+      const customMessage = getSanitizedMessage();
       const previewModal = document.getElementById('preview-modal');
       const loadingText = document.getElementById('preview-loading');
       const imgContainer = document.getElementById('preview-image-container');
@@ -610,6 +668,7 @@
       document.getElementById('export-id').innerText = `#${selectedDebris.noradId}`;
       document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
       document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
+      setExportMessage(customMessage);
 
       const certElement = document.getElementById('export-cert');
       certElement.style.left = '0px';
@@ -627,7 +686,7 @@
       }
     }
 
-    async function downloadCertificateImage(noradId, type, stat, exName) {
+    async function downloadCertificateImage(noradId, type, stat, exName, customMessage) {
       const btn = document.getElementById('download-cert-btn');
       btn.innerText = "GENERATING...";
 
@@ -635,6 +694,7 @@
       document.getElementById('export-id').innerText = `#${noradId}`;
       document.getElementById('export-type').innerText = type.toUpperCase();
       document.getElementById('export-stat').innerText = `"${stat}"`;
+      setExportMessage(customMessage);
 
       const certElement = document.getElementById('export-cert');
       certElement.style.left = '0px';
@@ -654,6 +714,90 @@
         btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
       } finally {
         certElement.style.left = '-9999px';
+      }
+    }
+
+    // =====================================================================
+    // 9b. SHARE — tries the phone/browser's native share sheet first
+    //     (works great on mobile, can attach the actual image). Falls back
+    //     to a simple menu of share links on desktop browsers that don't
+    //     support the Web Share API.
+    // =====================================================================
+    function buildShareText() {
+      const exName = lastCertData ? lastCertData.exName : (document.getElementById('success-name').textContent || 'my ex');
+      const message = lastCertData && lastCertData.customMessage ? ` "${lastCertData.customMessage}"` : '';
+      return `I just gave ${exName} a permanent piece of space garbage.${message} 🚀💔 exspacetrash.com`;
+    }
+
+    async function shareCertificate() {
+      const btn = document.getElementById('share-cert-btn');
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'PREPARING...';
+
+      const shareText = buildShareText();
+      const shareUrl = window.location.origin;
+
+      try {
+        // Try to attach the actual certificate image if the browser supports it
+        if (lastCertData && navigator.canShare) {
+          document.getElementById('export-ex-name').innerText = lastCertData.exName;
+          document.getElementById('export-id').innerText = `#${lastCertData.noradId}`;
+          document.getElementById('export-type').innerText = lastCertData.type.toUpperCase();
+          document.getElementById('export-stat').innerText = `"${lastCertData.stat}"`;
+          setExportMessage(lastCertData.customMessage);
+
+          const certElement = document.getElementById('export-cert');
+          certElement.style.left = '0px';
+          const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
+          certElement.style.left = '-9999px';
+
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          const file = new File([blob], `SpaceTrash_${lastCertData.noradId}.png`, { type: 'image/png' });
+
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'ExSpaceTrash.com', text: shareText });
+            return;
+          }
+        }
+
+        // No file support — try a plain link/text share (still native on most mobile browsers)
+        if (navigator.share) {
+          await navigator.share({ title: 'ExSpaceTrash.com', text: shareText, url: shareUrl });
+          return;
+        }
+
+        // Desktop fallback — open our own share menu with platform links
+        document.getElementById('share-modal').style.display = 'block';
+      } catch (err) {
+        if (err.name !== 'AbortError') { // AbortError = user just closed the native share sheet, not a real error
+          console.error(err);
+          document.getElementById('share-modal').style.display = 'block';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
+    function shareToPlatform(platform) {
+      const text = encodeURIComponent(buildShareText());
+      const url = encodeURIComponent(window.location.origin);
+      let href = '';
+      if (platform === 'twitter') href = `https://twitter.com/intent/tweet?text=${text}`;
+      if (platform === 'facebook') href = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
+      if (platform === 'whatsapp') href = `https://wa.me/?text=${text}`;
+      if (href) window.open(href, '_blank', 'width=550,height=420,noopener,noreferrer');
+    }
+
+    async function copyShareLink() {
+      const text = buildShareText();
+      try {
+        await navigator.clipboard.writeText(text);
+        showError('Copied to clipboard!');
+      } catch (err) {
+        console.error(err);
+        showError('Could not copy — long-press the text above to copy manually.');
       }
     }
 
@@ -689,11 +833,12 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName } = result.metadata;
+        const { noradId, type, stat, exName, customMessage } = result.metadata;
+        lastCertData = { noradId, type, stat, exName, customMessage };
         document.getElementById('verifying-modal').style.display = 'none';
         document.getElementById('success-name').innerText = exName;
         document.getElementById('download-cert-btn').onclick = () => {
-          downloadCertificateImage(noradId, type, stat, exName);
+          downloadCertificateImage(noradId, type, stat, exName, customMessage);
         };
         document.getElementById('success-modal').style.display = 'block';
       } catch (err) {
