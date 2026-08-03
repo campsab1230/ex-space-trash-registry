@@ -33,6 +33,7 @@ module.exports = async (req, res) => {
         type: session.metadata?.type,
         stat: session.metadata?.stat,
         exName: session.metadata?.exName,
+        customMessage: session.metadata?.customMessage,
       },
     });
   } catch (err) {
