@@ -1,3 +1,11 @@
+// api/create-checkout.js
+//
+// This is the ONLY place a Stripe Checkout Session should be created.
+// It uses the Supabase SERVICE ROLE key (server-only, never shipped to the
+// browser) so it can check/lock rows the public anon key isn't allowed to
+// touch. It never writes the "sold" record itself — that happens in
+// api/stripe-webhook.js, only after Stripe confirms the money actually moved.
+
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -10,7 +18,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, price, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -20,6 +28,7 @@ module.exports = async (req, res) => {
     const cleanName = String(exName).replace(/[^a-zA-Z0-9 .'-]/g, '').slice(0, 30) || 'UNKNOWN';
     const cleanType = String(type).slice(0, 120);
     const cleanStat = String(stat || '').slice(0, 200);
+    const cleanMessage = String(customMessage || '').replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
     const noradIdStr = String(noradId).slice(0, 20);
 
     // Reject a price that doesn't match a real tier — a tampered client
@@ -72,11 +81,12 @@ module.exports = async (req, res) => {
         type: cleanType,
         stat: cleanStat,
         exName: cleanName,
+        customMessage: cleanMessage,
       },
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,
       customer_email: (userEmail && String(userEmail).includes('@')) ? userEmail : undefined,
-      expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000), // Stripe minimum is 30 min,
+      expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000), // Stripe requires at least 30 min
     });
 
     // 4. Lock the object while checkout is in progress
