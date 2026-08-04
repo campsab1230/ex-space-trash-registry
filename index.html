@@ -98,7 +98,8 @@
 
             <div class="hud-panel auth-panel">
                 <div id="g_id_onload"
-                     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
+                     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com
+"
                      data-context="signin"
                      data-ux_mode="popup"
                      data-callback="handleCredentialResponse"
@@ -756,6 +757,10 @@
       return `I just gave ${exName} a permanent piece of space garbage.${message} 🚀💔 exspacetrash.com`;
     }
 
+    function isLikelyMobile() {
+      return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    }
+
     async function shareCertificate() {
       const btn = document.getElementById('share-cert-btn');
       const originalLabel = btn.textContent;
@@ -766,8 +771,15 @@
       const shareUrl = window.location.origin;
 
       try {
-        // Try to attach the actual certificate image if the browser supports it
-        if (lastCertData && navigator.canShare) {
+        // Attaching the actual certificate image means rendering it to canvas
+        // and converting that to a file — on some desktop browser/OS
+        // combinations, handing a freshly-generated file to the native share
+        // sheet can visibly stall the page for several seconds. Desktop
+        // "sharing" is really just posting a link + caption anyway (Download
+        // already gets them the actual image), so only take the heavy,
+        // image-attaching path on phones/tablets where it's expected and fast.
+        if (lastCertData && isLikelyMobile() && navigator.canShare) {
+          btn.textContent = 'GENERATING IMAGE...';
           document.getElementById('export-ex-name').innerText = lastCertData.exName;
           document.getElementById('export-id').innerText = `#${lastCertData.noradId}`;
           document.getElementById('export-type').innerText = lastCertData.type.toUpperCase();
@@ -783,18 +795,20 @@
           const file = new File([blob], `SpaceTrash_${lastCertData.noradId}.png`, { type: 'image/png' });
 
           if (navigator.canShare({ files: [file] })) {
+            btn.textContent = 'OPENING SHARE...';
             await navigator.share({ files: [file], title: 'ExSpaceTrash.com', text: shareText });
             return;
           }
         }
 
-        // No file support — try a plain link/text share (still native on most mobile browsers)
+        // Desktop, or mobile without file-share support — lightweight,
+        // no canvas rendering at all. Still native on most mobile browsers.
         if (navigator.share) {
           await navigator.share({ title: 'ExSpaceTrash.com', text: shareText, url: shareUrl });
           return;
         }
 
-        // Desktop fallback — open our own share menu with platform links
+        // No Web Share API at all — open our own share menu with platform links
         document.getElementById('share-modal').style.display = 'block';
       } catch (err) {
         if (err.name !== 'AbortError') { // AbortError = user just closed the native share sheet, not a real error
