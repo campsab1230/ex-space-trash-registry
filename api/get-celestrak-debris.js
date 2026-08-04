@@ -75,7 +75,7 @@ function recoverAltFromStat(stat) {
   return parseInt(match[1].replace(/,/g, ''), 10);
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
   try {
@@ -206,4 +206,4 @@ module.exports = async (req, res) => {
     if (cache.data) return res.status(200).json(cache.data);
     return res.status(500).json({ error: 'Failed to fetch debris data' });
   }
-};
+}
