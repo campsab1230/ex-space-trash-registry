@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/trash/:slug", "destination": "/api/trash-page" }
+  ]
+}
