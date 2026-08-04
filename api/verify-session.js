@@ -34,6 +34,7 @@ module.exports = async (req, res) => {
         stat: session.metadata?.stat,
         exName: session.metadata?.exName,
         customMessage: session.metadata?.customMessage,
+        emojiOverlay: session.metadata?.emojiOverlay,
       },
     });
   } catch (err) {
