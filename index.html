@@ -225,6 +225,10 @@
             🔗 SHARE
         </button>
         <button class="close-btn" onclick="document.getElementById('success-modal').style.display='none'">RETURN TO RADAR</button>
+    <div class="share-row">
+  <button onclick="shareX()">Share on X</button>
+  <button onclick="shareReddit()">Post to Reddit</button>
+  <button onclick="nativeShare()">Share</button>
     </div>
 
     <!-- Share Menu Modal (fallback for browsers without native share) -->
@@ -704,6 +708,38 @@
       banner.style.display = 'block';
       setTimeout(() => { banner.style.display = 'none'; }, 6000);
     }
+function showError(msg) {
+  const banner = document.getElementById('error-banner');
+  banner.textContent = msg;
+  banner.style.display = 'block';
+  setTimeout(() => {
+    banner.style.display = 'none';
+  }, 6000);
+} // <--- Close showError HERE!
+
+function shareText(obj) {
+  return `I just officially named NORAD Object #${obj.noradId} after ${obj.customName || obj.exName}. May they float uselessly in the void forever. 🛰️`;
+}
+
+function shareX() {
+  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText(window.currentClaim))}&url=${encodeURIComponent(url)}`, '_blank');
+}
+
+function shareReddit() {
+  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
+  window.open(`https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(shareText(window.currentClaim))}`, '_blank');
+}
+
+async function nativeShare() {
+  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
+  if (navigator.share) {
+    await navigator.share({ title: shareText(window.currentClaim), url });
+  } else {
+    await navigator.clipboard.writeText(url);
+    alert('Link copied!');
+  }
+}
 
     // =====================================================================
     // 8. CHECKOUT — the server (api/create-checkout.js) is the only place
