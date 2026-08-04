@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -30,6 +30,14 @@ module.exports = async (req, res) => {
     const cleanStat = String(stat || '').slice(0, 200);
     const cleanMessage = String(customMessage || '').replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
     const noradIdStr = String(noradId).slice(0, 20);
+
+    const EMOJI_ADDON_PRICE = 1.99;
+    const wantsEmojiAddon = emojiAddon === true;
+    // Same sanitization approach as the frontend: strip control/bidi/HTML-special
+    // characters but allow emoji/unicode through, then cap grapheme count.
+    const cleanEmoji = wantsEmojiAddon
+      ? Array.from(String(emojiOverlay || '').replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/gu, '')).slice(0, 4).join('')
+      : '';
 
     // Reject a price that doesn't match a real tier — a tampered client
     // request shouldn't be able to buy a $9.99 GEO object for a penny.
@@ -63,6 +71,24 @@ module.exports = async (req, res) => {
 
     // 3. Create the Stripe session
     const priceInCents = Math.round(numericPrice * 100);
+    const lineItems = [{
+      price_data: {
+        currency: 'usd',
+        product_data: { name: `Space Trash Claim: NORAD #${noradIdStr}` },
+        unit_amount: priceInCents,
+      },
+      quantity: 1,
+    }];
+    if (wantsEmojiAddon) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'Custom Emoji Overlay Add-on' },
+          unit_amount: Math.round(EMOJI_ADDON_PRICE * 100),
+        },
+        quantity: 1,
+      });
+    }
 
     // Build the site URL defensively — this must NEVER produce something
     // like "https://undefined". Preference order:
@@ -83,20 +109,14 @@ module.exports = async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: { name: `Space Trash Claim: NORAD #${noradIdStr}` },
-          unit_amount: priceInCents,
-        },
-        quantity: 1,
-      }],
+      line_items: lineItems,
       metadata: {
         noradId: noradIdStr,
         type: cleanType,
         stat: cleanStat,
         exName: cleanName,
         customMessage: cleanMessage,
+        emojiOverlay: cleanEmoji,
       },
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,
