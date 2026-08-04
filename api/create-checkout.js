@@ -63,7 +63,22 @@ module.exports = async (req, res) => {
 
     // 3. Create the Stripe session
     const priceInCents = Math.round(numericPrice * 100);
-    const siteUrl = process.env.SITE_URL || `https://${req.headers.host}`;
+
+    // Build the site URL defensively — this must NEVER produce something
+    // like "https://undefined". Preference order:
+    //   1. SITE_URL env var (best — set this in Vercel)
+    //   2. req.headers.host, if present and sane
+    //   3. Hardcoded fallback, so a missing/odd header can never crash checkout
+    const HARDCODED_FALLBACK = 'https://www.exspacetrash.com';
+    let siteUrl = (process.env.SITE_URL || '').trim();
+    if (!siteUrl && req.headers.host) {
+      siteUrl = `https://${req.headers.host}`;
+    }
+    if (!siteUrl || !/^https?:\/\/.+/.test(siteUrl)) {
+      console.warn(`create-checkout: SITE_URL/host was missing or invalid ("${siteUrl}") — using hardcoded fallback.`);
+      siteUrl = HARDCODED_FALLBACK;
+    }
+    siteUrl = siteUrl.replace(/\/+$/, ''); // strip any trailing slash so we don't end up with "//"
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
