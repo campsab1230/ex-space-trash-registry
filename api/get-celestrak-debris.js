@@ -18,7 +18,6 @@
 // Deploy target: Vercel serverless function (Node.js runtime).
 
 import { createClient } from '@supabase/supabase-js';
-import fetch from 'node-fetch';
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // Debris-specific groups (all LEO collision/ASAT clouds — great debris flavor,
