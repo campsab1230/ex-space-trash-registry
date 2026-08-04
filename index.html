@@ -861,7 +861,7 @@ try {
       setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
-      certElement.style.left = '0px';
+     certElement.style.opacity = '1';
 
       try {
         const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
@@ -876,9 +876,9 @@ try {
       } catch (err) {
         console.error(err);
         btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
-      } finally {
-        certElement.style.left = '-9999px';
-      }
+     } finally {
+  certElement.style.opacity = '0';
+}
     }
 
     // =====================================================================
