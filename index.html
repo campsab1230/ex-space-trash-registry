@@ -249,7 +249,7 @@
     </div>
 
     <!-- Hidden Certificate Template for Social Media Export -->
-    <div id="export-cert" style="position: fixed; left: -9999px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1;">
+    <div id="export-cert" style="position: fixed; left: 0px; top: 0; width: 800px; height: 800px; ... z-index: -1; opacity: 0; pointer-events: none;"onospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1;">
         <div id="export-emoji" style="font-size: 4rem; display: none; margin-bottom: -10px;">--</div>
         <h1 style="color: #ff5577; margin-bottom: 10px; font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px #ff5577;">OFFICIAL SPACE TRASH ASSIGNMENT</h1>
 
@@ -835,19 +835,18 @@ async function nativeShare() {
       setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
-      certElement.style.left = '0px';
-
-      try {
-        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
-        imgResult.src = canvas.toDataURL('image/png');
-        loadingText.style.display = 'none';
-        imgContainer.style.display = 'block';
-      } catch (err) {
-        console.error(err);
-        loadingText.innerText = 'Preview failed to generate. Please try again.';
-      } finally {
-        certElement.style.left = '-9999px';
-      }
+     certElement.style.opacity = '1';
+try {
+  const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
+  imgResult.src = canvas.toDataURL('image/png');
+  loadingText.style.display = 'none';
+  imgContainer.style.display = 'block';
+} catch (err) {
+  console.error(err);
+  loadingText.innerText = 'Preview failed to generate. Please try again.';
+} finally {
+  certElement.style.opacity = '0';
+}
     }
 
     async function downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay) {
