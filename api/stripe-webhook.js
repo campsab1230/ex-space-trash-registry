@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const { noradId, type, stat, exName, customMessage } = session.metadata || {};
+    const { noradId, type, stat, exName, customMessage, emojiOverlay } = session.metadata || {};
 
     if (!noradId || !exName) {
       console.error('Webhook missing expected metadata', session.id);
@@ -60,6 +60,7 @@ module.exports = async (req, res) => {
         dedication_name: exName,
         stat: stat,
         custom_message: customMessage || null,
+        emoji_overlay: emojiOverlay || null,
         stripe_session_id: session.id,
       }]);
 
