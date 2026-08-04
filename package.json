@@ -1,10 +1,12 @@
 {
   "name": "exspacetrash",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "description": "Name a real piece of space junk after your ex.",
   "dependencies": {
     "stripe": "^16.0.0",
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.48.0",
+    "@vercel/og": "^0.6.0"
   }
 }
