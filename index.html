@@ -98,8 +98,7 @@
 
             <div class="hud-panel auth-panel">
                 <div id="g_id_onload"
-                     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com
-"
+                     data-client_id="21482075441-pv2kru3ael8lmd060vop49hogp6h3i33.apps.googleusercontent.com"
                      data-context="signin"
                      data-ux_mode="popup"
                      data-callback="handleCredentialResponse"
@@ -119,7 +118,11 @@
         </div>
 
         <div class="hud-panel ticker-panel">
-            <div id="live-ticker"><span class="highlight">INITIALIZING U.S. SPACE COMMAND UPLINK...</span></div>
+            <div id="live-ticker"><span class="highlight">INITIALIZING ORBITAL TRACKING UPLINK...</span></div>
+        </div>
+
+        <div style="text-align: center; font-size: 0.65rem; color: #444; margin-top: 6px; pointer-events: auto;">
+            Orbital data courtesy of <a href="https://celestrak.org" target="_blank" rel="noopener noreferrer" style="color: #555;">CelesTrak</a> · Not affiliated with NASA, NORAD, or the U.S. Space Force · <a href="/legal.html" style="color: #555;">Terms &amp; Disclaimers</a>
         </div>
     </div>
 
@@ -160,9 +163,33 @@
             <div style="text-align:right; font-size: 0.7rem; color: #555; margin-top: 4px;"><span id="message-char-count">0</span>/25</div>
         </div>
 
+        <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #8ab4f8; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enable-emoji-addon" onchange="toggleEmojiAddon()" style="width: auto; margin: 0;" />
+                ADD EMOJI OVERLAY (+$1.99)
+            </label>
+
+            <div id="emoji-picker" style="display: none; margin-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                    <button type="button" onclick="setEmoji('💔')" style="width: auto; margin: 0; padding: 8px 14px; font-size: 1.2rem;">💔</button>
+                    <button type="button" onclick="setEmoji('🚩')" style="width: auto; margin: 0; padding: 8px 14px; font-size: 1.2rem;">🚩</button>
+                    <button type="button" onclick="setEmoji('💩')" style="width: auto; margin: 0; padding: 8px 14px; font-size: 1.2rem;">💩</button>
+                    <button type="button" onclick="setEmoji('🤡')" style="width: auto; margin: 0; padding: 8px 14px; font-size: 1.2rem;">🤡</button>
+                    <button type="button" onclick="setEmoji('🔥')" style="width: auto; margin: 0; padding: 8px 14px; font-size: 1.2rem;">🔥</button>
+                </div>
+                <input type="text" id="custom-emoji-input" class="name-input" placeholder="or type your own" style="text-transform: none; font-size: 1.3rem; text-align: center;" value="💔" />
+            </div>
+        </div>
+
         <div id="cert-text" style="line-height: 1.6; font-size: 0.95rem; margin: 15px 0; text-align: left; font-family: monospace; background: rgba(0,0,0,0.5); padding: 15px; border-left: 3px solid #4ef2d2;"></div>
 
         <button id="preview-btn" onclick="generatePreview()" style="border-color: #00f0ff; color: #00f0ff; margin-bottom: 10px;">👀 PREVIEW SOCIAL CERTIFICATE</button>
+
+        <p style="font-size: 0.7rem; color: #555; text-align: center; margin: 4px 0 10px;">
+            Novelty item — no real ownership rights conveyed. All sales final.
+            <a href="/legal.html" target="_blank" rel="noopener noreferrer" style="color: #4ef2d2;">Terms &amp; Disclaimers</a>
+        </p>
+
         <button id="checkout-button" style="border-color: #efc84e; color: #efc84e;" onclick="startCheckout()">CONFIRM PAYMENT</button>
         <button class="close-btn" onclick="document.getElementById('certificate').style.display='none'">ABORT</button>
     </div>
@@ -219,6 +246,7 @@
 
     <!-- Hidden Certificate Template for Social Media Export -->
     <div id="export-cert" style="position: fixed; left: -9999px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1;">
+        <div id="export-emoji" style="font-size: 4rem; display: none; margin-bottom: -10px;">--</div>
         <h1 style="color: #ff5577; margin-bottom: 10px; font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px #ff5577;">OFFICIAL SPACE TRASH ASSIGNMENT</h1>
 
         <div style="margin: 30px 0; padding: 30px; border: 2px dashed #555; background: rgba(10, 15, 25, 0.8);">
@@ -561,6 +589,52 @@
       return raw.replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
     }
 
+    const EMOJI_ADDON_PRICE = 1.99;
+
+    function getSanitizedEmoji() {
+      const raw = document.getElementById('custom-emoji-input').value.trim();
+      if (!raw) return '';
+      // Strip control characters, bidi-override characters, and anything
+      // HTML-special — but otherwise allow unicode/emoji through, since
+      // stripping to a-z/0-9 (like the name field) would delete all emoji.
+      const cleaned = raw.replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/g, '');
+      // Hard cap on grapheme count (not just string length) so a compound/
+      // multi-codepoint emoji sequence can't be used to smuggle in a huge string.
+      return Array.from(cleaned).slice(0, 4).join('');
+    }
+
+    function isEmojiAddonSelected() {
+      return document.getElementById('enable-emoji-addon').checked;
+    }
+
+    function getCurrentTotal() {
+      if (!selectedDebris) return 0;
+      return selectedDebris.price + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0);
+    }
+
+    function updateCheckoutTotal() {
+      const btn = document.getElementById('checkout-button');
+      if (!btn.disabled) { // don't clobber "REDIRECTING..." mid-checkout
+        btn.textContent = `CONFIRM PAYMENT ($${getCurrentTotal().toFixed(2)})`;
+      }
+    }
+
+    function toggleEmojiAddon() {
+      const picker = document.getElementById('emoji-picker');
+      picker.style.display = isEmojiAddonSelected() ? 'block' : 'none';
+      updateCheckoutTotal();
+      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+    }
+
+    function setEmoji(emoji) {
+      document.getElementById('custom-emoji-input').value = emoji;
+      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+    }
+
+    document.getElementById('custom-emoji-input').addEventListener('input', () => {
+      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+    });
+
     function renderCertText(exName, message) {
       const container = document.getElementById('cert-text');
       container.innerHTML = '';
@@ -580,6 +654,13 @@
       strong.style.fontSize = '1.2rem';
       strong.textContent = exName;
       line2.appendChild(strong);
+      if (isEmojiAddonSelected() && getSanitizedEmoji()) {
+        line2.appendChild(document.createTextNode(' '));
+        const emojiSpan = document.createElement('span');
+        emojiSpan.style.fontSize = '1.3rem';
+        emojiSpan.textContent = getSanitizedEmoji();
+        line2.appendChild(emojiSpan);
+      }
       line2.appendChild(document.createTextNode('.'));
       container.appendChild(line2);
 
@@ -599,6 +680,9 @@
       document.getElementById('ex-name-input').value = '';
       document.getElementById('custom-message-input').value = '';
       document.getElementById('message-char-count').textContent = '0';
+      document.getElementById('enable-emoji-addon').checked = false;
+      document.getElementById('emoji-picker').style.display = 'none';
+      document.getElementById('custom-emoji-input').value = '💔';
       document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       document.getElementById('checkout-button').disabled = false;
       renderCertText('UNKNOWN', '');
@@ -630,6 +714,8 @@
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
       const customMessage = getSanitizedMessage();
+      const emojiAddonSelected = isEmojiAddonSelected();
+      const emojiOverlay = emojiAddonSelected ? getSanitizedEmoji() : '';
       const btn = document.getElementById('checkout-button');
       btn.disabled = true;
       btn.innerText = "REDIRECTING...";
@@ -644,6 +730,8 @@
             exName: exName,
             customMessage: customMessage,
             price: selectedDebris.price,
+            emojiAddon: emojiAddonSelected,
+            emojiOverlay: emojiOverlay,
             userEmail: currentUser
           })
         });
@@ -662,7 +750,7 @@
         console.error(err);
         showError('Something went wrong starting checkout. Please try again.');
         btn.disabled = false;
-        btn.innerText = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
+        btn.innerText = `CONFIRM PAYMENT ($${getCurrentTotal().toFixed(2)})`;
       }
     }
 
@@ -679,10 +767,21 @@
       }
     }
 
+    function setExportEmoji(emoji) {
+      const el = document.getElementById('export-emoji');
+      if (emoji) {
+        el.textContent = emoji;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
     async function generatePreview() {
       if (!selectedDebris) return;
       const exName = getSanitizedExName();
       const customMessage = getSanitizedMessage();
+      const emojiOverlay = isEmojiAddonSelected() ? getSanitizedEmoji() : '';
       const previewModal = document.getElementById('preview-modal');
       const loadingText = document.getElementById('preview-loading');
       const imgContainer = document.getElementById('preview-image-container');
@@ -697,6 +796,7 @@
       document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
       document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
       setExportMessage(customMessage);
+      setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
       certElement.style.left = '0px';
@@ -714,7 +814,7 @@
       }
     }
 
-    async function downloadCertificateImage(noradId, type, stat, exName, customMessage) {
+    async function downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay) {
       const btn = document.getElementById('download-cert-btn');
       btn.innerText = "GENERATING...";
 
@@ -723,6 +823,7 @@
       document.getElementById('export-type').innerText = type.toUpperCase();
       document.getElementById('export-stat').innerText = `"${stat}"`;
       setExportMessage(customMessage);
+      setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
       certElement.style.left = '0px';
@@ -785,6 +886,7 @@
           document.getElementById('export-type').innerText = lastCertData.type.toUpperCase();
           document.getElementById('export-stat').innerText = `"${lastCertData.stat}"`;
           setExportMessage(lastCertData.customMessage);
+          setExportEmoji(lastCertData.emojiOverlay);
 
           const certElement = document.getElementById('export-cert');
           certElement.style.left = '0px';
@@ -874,12 +976,12 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName, customMessage } = result.metadata;
-        lastCertData = { noradId, type, stat, exName, customMessage };
+        const { noradId, type, stat, exName, customMessage, emojiOverlay } = result.metadata;
+        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay };
         document.getElementById('verifying-modal').style.display = 'none';
         document.getElementById('success-name').innerText = exName;
         document.getElementById('download-cert-btn').onclick = () => {
-          downloadCertificateImage(noradId, type, stat, exName, customMessage);
+          downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay);
         };
         document.getElementById('success-modal').style.display = 'block';
       } catch (err) {
