@@ -225,10 +225,6 @@
             🔗 SHARE
         </button>
         <button class="close-btn" onclick="document.getElementById('success-modal').style.display='none'">RETURN TO RADAR</button>
-    <div class="share-row">
-  <button onclick="shareX()">Share on X</button>
-  <button onclick="shareReddit()">Post to Reddit</button>
-  <button onclick="nativeShare()">Share</button>
     </div>
 
     <!-- Share Menu Modal (fallback for browsers without native share) -->
@@ -249,7 +245,8 @@
     </div>
 
     <!-- Hidden Certificate Template for Social Media Export -->
-<div id="export-cert" style="position: fixed; left: 0px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1; opacity: 0; pointer-events: none;">        <div id="export-emoji" style="font-size: 4rem; display: none; margin-bottom: -10px;">--</div>
+    <div id="export-cert" style="position: fixed; left: 0px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1; opacity: 0; pointer-events: none;">
+        <div id="export-emoji" style="font-size: 4rem; display: none; margin-bottom: -10px;">--</div>
         <h1 style="color: #ff5577; margin-bottom: 10px; font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px #ff5577;">OFFICIAL SPACE TRASH ASSIGNMENT</h1>
 
         <div style="margin: 30px 0; padding: 30px; border: 2px dashed #555; background: rgba(10, 15, 25, 0.8);">
@@ -707,38 +704,6 @@
       banner.style.display = 'block';
       setTimeout(() => { banner.style.display = 'none'; }, 6000);
     }
-function showError(msg) {
-  const banner = document.getElementById('error-banner');
-  banner.textContent = msg;
-  banner.style.display = 'block';
-  setTimeout(() => {
-    banner.style.display = 'none';
-  }, 6000);
-} // <--- Close showError HERE!
-
-function shareText(obj) {
-  return `I just officially named NORAD Object #${obj.noradId} after ${obj.customName || obj.exName}. May they float uselessly in the void forever. 🛰️`;
-}
-
-function shareX() {
-  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
-  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText(window.currentClaim))}&url=${encodeURIComponent(url)}`, '_blank');
-}
-
-function shareReddit() {
-  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
-  window.open(`https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(shareText(window.currentClaim))}`, '_blank');
-}
-
-async function nativeShare() {
-  const url = `https://exspacetrash.com/trash/${window.currentClaim.slug}`;
-  if (navigator.share) {
-    await navigator.share({ title: shareText(window.currentClaim), url });
-  } else {
-    await navigator.clipboard.writeText(url);
-    alert('Link copied!');
-  }
-}
 
     // =====================================================================
     // 8. CHECKOUT — the server (api/create-checkout.js) is the only place
@@ -834,18 +799,18 @@ async function nativeShare() {
       setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
-     certElement.style.opacity = '1';
-try {
-  const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
-  imgResult.src = canvas.toDataURL('image/png');
-  loadingText.style.display = 'none';
-  imgContainer.style.display = 'block';
-} catch (err) {
-  console.error(err);
-  loadingText.innerText = 'Preview failed to generate. Please try again.';
-} finally {
-  certElement.style.opacity = '0';
-}
+      certElement.style.opacity = '1';
+      try {
+        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
+        imgResult.src = canvas.toDataURL('image/png');
+        loadingText.style.display = 'none';
+        imgContainer.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        loadingText.innerText = 'Preview failed to generate. Please try again.';
+      } finally {
+        certElement.style.opacity = '0';
+      }
     }
 
     async function downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay) {
@@ -860,7 +825,7 @@ try {
       setExportEmoji(emojiOverlay);
 
       const certElement = document.getElementById('export-cert');
-     certElement.style.opacity = '1';
+      certElement.style.opacity = '1';
 
       try {
         const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
@@ -875,9 +840,9 @@ try {
       } catch (err) {
         console.error(err);
         btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
-     } finally {
-  certElement.style.opacity = '0';
-}
+      } finally {
+        certElement.style.opacity = '0';
+      }
     }
 
     // =====================================================================
@@ -923,9 +888,9 @@ try {
           setExportEmoji(lastCertData.emojiOverlay);
 
           const certElement = document.getElementById('export-cert');
-          certElement.style.left = '0px';
+          certElement.style.opacity = '1';
           const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
-          certElement.style.left = '-9999px';
+          certElement.style.opacity = '0';
 
           const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
           const file = new File([blob], `SpaceTrash_${lastCertData.noradId}.png`, { type: 'image/png' });
