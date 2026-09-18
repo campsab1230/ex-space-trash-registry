@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#020208"/>
+      <stop offset="0.55" stop-color="#050a16"/>
+      <stop offset="1" stop-color="#020208"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#4ef2d2" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#4ef2d2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="18" y="18" width="1164" height="594" fill="none" stroke="#4ef2d2" stroke-width="4" opacity="0.85" rx="10"/>
+
+  <!-- faint orbit arcs -->
+  <g opacity="0.30" fill="none" stroke="#4ef2d2">
+    <ellipse cx="600" cy="300" rx="470" ry="120" stroke-width="2" transform="rotate(-12 600 300)"/>
+    <ellipse cx="600" cy="300" rx="360" ry="86"  stroke-width="1.5" transform="rotate(-12 600 300)" opacity="0.7"/>
+  </g>
+
+  <!-- top brand row -->
+  <text x="600" y="96" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="40"
+        font-weight="bold" fill="#ffffff" letter-spacing="3">EXSPACETRASH.COM</text>
+  <text x="600" y="132" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="21"
+        fill="#8ab4f8" letter-spacing="1">OFFICIAL REGISTRY OF SPACE TRASH</text>
+
+  <!-- headline -->
+  <text x="600" y="206" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="47"
+        font-weight="bold" fill="#4ef2d2" letter-spacing="1">NAME REAL SPACE JUNK</text>
+  <text x="600" y="262" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="47"
+        font-weight="bold" fill="#4ef2d2" letter-spacing="1">AFTER YOUR EX.</text>
+  <text x="600" y="304" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="25"
+        fill="#ff5577" letter-spacing="1">Permanently. For $1.99.</text>
+
+  <!-- certificate card -->
+  <g>
+    <rect x="250" y="342" width="700" height="196" rx="8" fill="#060b16" opacity="0.95"
+          stroke="#555" stroke-width="2" stroke-dasharray="10 8"/>
+    <text x="600" y="384" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="20"
+          fill="#888" letter-spacing="2">DEBRIS ENGAGED</text>
+    <text x="600" y="428" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="22"
+          fill="#cccccc">NORAD object <tspan fill="#4ef2d2" font-weight="bold">#35786</tspan> is now associated with</text>
+    <text x="600" y="486" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="52"
+          font-weight="bold" fill="#efc84e" letter-spacing="3">SEASHELL</text>
+    <text x="600" y="518" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="18"
+          fill="#666">for all eternity.* &#160;&#160;*or until the Sun explodes.</text>
+  </g>
+
+  <text x="600" y="590" text-anchor="middle" font-family="DejaVu Sans Mono" font-size="19"
+        fill="#8ab4f8" letter-spacing="1">exspacetrash.com &#160;&#183;&#160; Because sending a glitter bomb is temporary.</text>
+</svg>

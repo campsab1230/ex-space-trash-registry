@@ -5,16 +5,48 @@
 // browser) so it can check/lock rows the public anon key isn't allowed to
 // touch. It never writes the "sold" record itself — that happens in
 // api/stripe-webhook.js, only after Stripe confirms the money actually moved.
+//
+// FIX #1 (the outage): this project is "type": "module" (ESM). This file used
+//   require()/module.exports, which throws "require is not defined" at load
+//   time — so every request 500'd before any logic ran. Converted to ESM.
+//
+// FIX #2 (a real hole): the old code validated that the price was *one of*
+//   [1.99, 5.99, 9.99], then charged it. It never checked the price matched
+//   the object's orbit. Anyone could claim a $9.99 GEO object for $1.99 by
+//   editing the request. The price tier is now derived from the object's own
+//   `stat` altitude (which you generate server-side), and the client's
+//   number is only used to verify the two agree.
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const EMOJI_ADDON_PRICE = 1.99;
 
-module.exports = async (req, res) => {
+// Tier prices. Must match the client's tiers in index.html.
+const PRICE_BY_REGIME = { LEO: 1.99, MEO: 5.99, GEO: 9.99 };
+
+/**
+ * Derive the regime (and therefore the price) from the object's altitude.
+ * The altitude lives in the `stat` string your own server wrote, e.g.
+ * "FENGYUN 1C DEBRIS • Alt: 882 km" — so it is not client-forgeable.
+ * Returns null if we can't read a real altitude, in which case we refuse
+ * the sale rather than guess a price.
+ */
+function regimeFromStat(stat) {
+  const m = String(stat || '').match(/Alt:\s*([\d,]+)\s*km/i);
+  if (!m) return null;
+  const altKm = parseInt(m[1].replace(/,/g, ''), 10);
+  if (!Number.isFinite(altKm)) return null;
+  if (altKm > 35000) return 'GEO';
+  if (altKm > 2000) return 'MEO';
+  return 'LEO';
+}
+
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
@@ -31,20 +63,27 @@ module.exports = async (req, res) => {
     const cleanMessage = String(customMessage || '').replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
     const noradIdStr = String(noradId).slice(0, 20);
 
-    const EMOJI_ADDON_PRICE = 1.99;
     const wantsEmojiAddon = emojiAddon === true;
-    // Same sanitization approach as the frontend: strip control/bidi/HTML-special
-    // characters but allow emoji/unicode through, then cap grapheme count.
     const cleanEmoji = wantsEmojiAddon
       ? Array.from(String(emojiOverlay || '').replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/gu, '')).slice(0, 4).join('')
       : '';
 
-    // Reject a price that doesn't match a real tier — a tampered client
-    // request shouldn't be able to buy a $9.99 GEO object for a penny.
-    const validPrices = [1.99, 5.99, 9.99];
     const numericPrice = Number(price);
-    if (!validPrices.includes(numericPrice)) {
+    if (![1.99, 5.99, 9.99].includes(numericPrice)) {
       return res.status(400).json({ error: 'Invalid price' });
+    }
+
+    // ---- Price must MATCH the object's orbit, not merely be a valid tier. ----
+    const regime = regimeFromStat(cleanStat);
+    if (!regime) {
+      // No trustworthy altitude -> we cannot verify the price. Refuse.
+      console.error('create-checkout: could not derive regime from stat', { noradIdStr, stat: cleanStat });
+      return res.status(400).json({ error: 'Could not verify this object. Please reload and try again.' });
+    }
+    const expectedBase = PRICE_BY_REGIME[regime];
+    if (Math.abs(numericPrice - expectedBase) > 0.001) {
+      console.error('create-checkout: price/regime mismatch', { noradIdStr, regime, sent: numericPrice, expected: expectedBase });
+      return res.status(400).json({ error: 'Price does not match this object.' });
     }
 
     // 1. Already sold?
@@ -90,11 +129,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Build the site URL defensively — this must NEVER produce something
-    // like "https://undefined". Preference order:
-    //   1. SITE_URL env var (best — set this in Vercel)
-    //   2. req.headers.host, if present and sane
-    //   3. Hardcoded fallback, so a missing/odd header can never crash checkout
+    // Build the site URL defensively — this must NEVER produce "https://undefined".
     const HARDCODED_FALLBACK = 'https://www.exspacetrash.com';
     let siteUrl = (process.env.SITE_URL || '').trim();
     if (!siteUrl && req.headers.host) {
@@ -104,7 +139,7 @@ module.exports = async (req, res) => {
       console.warn(`create-checkout: SITE_URL/host was missing or invalid ("${siteUrl}") — using hardcoded fallback.`);
       siteUrl = HARDCODED_FALLBACK;
     }
-    siteUrl = siteUrl.replace(/\/+$/, ''); // strip any trailing slash so we don't end up with "//"
+    siteUrl = siteUrl.replace(/\/+$/, '');
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -121,10 +156,12 @@ module.exports = async (req, res) => {
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,
       customer_email: (userEmail && String(userEmail).includes('@')) ? userEmail : undefined,
-      expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000), // Stripe requires at least 30 min
+      expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
     });
 
-    // 4. Lock the object while checkout is in progress
+    // 4. Lock the object while checkout is in progress.
+    // NOTE: the column is `session_id` (confirmed against the live table —
+    // there is no `stripe_session_id` column here).
     const { error: lockErr } = await supabase
       .from('pending_claims')
       .upsert({ norad_id: noradIdStr, session_id: session.id, created_at: new Date().toISOString() });
@@ -135,4 +172,4 @@ module.exports = async (req, res) => {
     console.error('create-checkout error:', err);
     return res.status(500).json({ error: 'Failed to create checkout session' });
   }
-};
+}

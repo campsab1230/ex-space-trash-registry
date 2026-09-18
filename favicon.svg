@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="12" fill="#020208"/>
+  <!-- orbital ring -->
+  <ellipse cx="32" cy="32" rx="25" ry="9" fill="none" stroke="#4ef2d2" stroke-width="2.5"
+           transform="rotate(-28 32 32)" opacity="0.9"/>
+  <!-- debris chunk -->
+  <polygon points="30,20 38,24 40,33 33,39 25,35 23,26" fill="#bfc6cf" stroke="#8ab4f8" stroke-width="1.5"
+           stroke-linejoin="round" transform="rotate(14 32 30)"/>
+  <!-- broken heart -->
+  <path d="M22 46c0-3.4 2.6-5 4.6-5 1.4 0 2.6.7 3.4 1.8.8-1.1 2-1.8 3.4-1.8 2 0 4.6 1.6 4.6 5 0 3.6-4 6.4-8 8.6-4-2.2-8-5-8-8.6z"
+        fill="#ff5577" opacity="0.95"/>
+  <line x1="30" y1="44" x2="38" y2="53" stroke="#020208" stroke-width="2.2"/>
+</svg>

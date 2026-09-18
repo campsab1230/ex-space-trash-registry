@@ -122,9 +122,21 @@ export default async function handler(req, res) {
     // Stratified sampling — plain random sampling would get swamped by the
     // LEO debris clouds (thousands of fragments) and MEO/GEO objects
     // (usually a few dozen) would rarely get picked at all. Guarantee a mix.
+    // Fisher-Yates. The previous `sort(() => 0.5 - Math.random())` is a
+    // biased shuffle: V8's sort assumes a consistent comparator, and an
+    // inconsistent one produces a non-uniform ordering — so some objects
+    // were far likelier to be drawn than others.
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
     function sampleRegime(regime, count) {
       const pool = withAltitude.filter(o => o.regime === regime);
-      return pool.sort(() => 0.5 - Math.random()).slice(0, count);
+      return shuffle(pool).slice(0, count);
     }
 
     const sample = [

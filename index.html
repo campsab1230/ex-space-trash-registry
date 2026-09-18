@@ -3,8 +3,39 @@
 <head>
     <script src="https://accounts.google.com/gsi/client" async></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ExSpaceTrash.com • Official Registry of Space Trash</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ExSpaceTrash — Name Real Space Junk After Your Ex. Permanently.</title>
+
+    <!-- SEO / discovery -->
+    <meta name="description" content="Claim a real, publicly-tracked piece of orbital debris and permanently name it after your ex. Get a shareable novelty certificate. $1.99–$9.99. The pettiest thing in the solar system.">
+    <link rel="canonical" href="https://www.exspacetrash.com/">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="theme-color" content="#020208">
+
+    <!-- Open Graph (Facebook, iMessage, Discord, LinkedIn, Slack) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ExSpaceTrash.com">
+    <meta property="og:title" content="ExSpaceTrash — Name Real Space Junk After Your Ex">
+    <meta property="og:description" content="Pick a real piece of orbital debris. Permanently associate it with your ex. Share the certificate. Because sending a glitter bomb is temporary.">
+    <meta property="og:url" content="https://www.exspacetrash.com/">
+    <meta property="og:image" content="https://www.exspacetrash.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="ExSpaceTrash certificate: a real piece of space debris named after your ex.">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Name Real Space Junk After Your Ex. Permanently.">
+    <meta name="twitter:description" content="Pick a real tracked piece of orbital debris. Put your ex's name on it forever. Shareable certificate included.">
+    <meta name="twitter:image" content="https://www.exspacetrash.com/og-image.png">
+    <meta name="twitter:image:alt" content="ExSpaceTrash novelty space debris certificate">
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -54,12 +85,32 @@
         #error-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: rgba(255,85,119,0.15); border: 1px solid #ff5577; color: #ff5577; padding: 10px 18px; border-radius: 6px; display: none; max-width: 90%; text-align: center; }
 
         @media (max-width: 768px) {
-            #ui { padding: 10px; }
+            #ui { padding: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
             h1 { font-size: 1.2rem; }
             .top-bar { flex-direction: column; gap: 10px; }
             .auth-panel { text-align: left; }
-            #hud-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; max-height: 45vh; overflow-y: auto; }
+            #hud-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; max-height: 45vh; overflow-y: auto; touch-action: pan-y; }
         }
+
+        /* Collapse control for the header panel — on small screens the panel
+           can cover most of the 3D view, so let people hide it. */
+        #panel-toggle {
+            display: none; background: none; border: none; color: #4ef2d2;
+            font-size: 20px; line-height: 1; padding: 0 4px; width: auto;
+            margin: 0; cursor: pointer;
+        }
+        @media (max-width: 768px) { #panel-toggle { display: block; } }
+        .header-panel.collapsed .field-label,
+        .header-panel.collapsed .search-row,
+        .header-panel.collapsed #search-match-count,
+        .header-panel.collapsed .panel-sub { display: none; }
+
+        /* Critical: non-critical panels must never swallow taps meant for the
+           debris field. Any child that needs taps opts back in explicitly. */
+        .hud-panel { pointer-events: auto; }
+        #ui, .top-bar { pointer-events: none; }
+        .ticker-panel { pointer-events: none; }
+        .footer-credit { pointer-events: auto; }
     </style>
 </head>
 <body>
@@ -69,10 +120,13 @@
 
     <div id="ui">
         <div class="top-bar">
-            <div class="hud-panel header-panel">
-                <h1>EXSPACETRASH.COM</h1>
+            <div class="hud-panel header-panel" id="panel-shell">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                    <h1>EXSPACETRASH.COM</h1>
+                    <button id="panel-toggle" type="button" aria-label="Collapse panel" onclick="togglePanel()">&#9662;</button>
+                </div>
                 <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
-                <p style="margin-top:8px; color:#efc84e; font-size: 1rem;">👇 Tap space junk, or search below. Claim it. Name it. Done.</p>
+                <p class="panel-sub" style="margin-top:8px; color:#efc84e; font-size: 1rem;">Tap a debris object, or search below. Claim it. Name it. Done.</p>
 
                 <label class="field-label" for="orbit-select">ORBIT SECTOR</label>
                 <div class="search-row">
@@ -358,8 +412,13 @@
     // =====================================================================
     // 4. 3D RENDER ENGINE
     // =====================================================================
+    // Bind the global THREE the CDN <script> creates explicitly, so this file
+    // never depends on implicit globals (the animation loop used THREE too).
+    const THREE = window.THREE;
     const raycaster = new THREE.Raycaster();
-    raycaster.params.Mesh.threshold = 0.5;
+    // NOTE: raycaster.params.Mesh.threshold does NOT affect Mesh picking in
+    // r128 — it only applies to Points/Line. Invisible pick-proxy spheres are
+    // used instead (see createDebrisItem).
     const mouse = new THREE.Vector2();
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -372,7 +431,7 @@
     const earth = new THREE.Mesh(
       new THREE.SphereGeometry(1.5, 64, 64),
       new THREE.MeshPhongMaterial({
-        map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'),
+        map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/earth_atmos_2048.jpg'),
         shininess: 10
       })
     );
@@ -399,23 +458,36 @@
       const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
       const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
       const material = new THREE.MeshStandardMaterial({ color: 0xff0055, roughness: 0.3, metalness: 0.2 });
+      // Wrap in a Group so an invisible, oversized pick-proxy can hang off it.
+      // (A Group has no geometry, so appearance is unchanged; Groups propagate
+      // .visible to children, so hiding the group still hides everything.)
+      const group = new THREE.Group();
       const mesh = new THREE.Mesh(geometry, material);
       mesh.scale.set(0.15, 0.15, 0.15);
       mesh.rotation.x = Math.PI;
-      return mesh;
+      group.add(mesh);
+
+      const proxy = new THREE.Mesh(
+        new THREE.SphereGeometry(0.45, 8, 8),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      proxy.userData = { decorative: true };
+      group.add(proxy);
+
+      return group;
     }
 
     const decorativePieces = [];
     for (let i = 0; i < 8; i++) {
-      const heartMesh = createHeartMesh();
+      const heartGroup = createHeartMesh();
       const radius = 2.0 + Math.random() * 1.5;
       const angle = Math.random() * Math.PI * 2;
-      heartMesh.position.x = Math.cos(angle) * radius;
-      heartMesh.position.z = Math.sin(angle) * radius;
-      heartMesh.position.y = (Math.random() - 0.5) * 2;
-      heartMesh.userData = { orbitRadius: radius, angle };
-      scene.add(heartMesh);
-      decorativePieces.push(heartMesh);
+      heartGroup.position.x = Math.cos(angle) * radius;
+      heartGroup.position.z = Math.sin(angle) * radius;
+      heartGroup.position.y = (Math.random() - 0.5) * 2;
+      heartGroup.userData = { orbitRadius: radius, angle, altY: heartGroup.position.y };
+      scene.add(heartGroup);
+      decorativePieces.push(heartGroup);
     }
 
     function createDebrisItem(data) {
@@ -429,28 +501,54 @@
 
       const mesh = new THREE.Mesh(geo, metalMaterial);
       const angle = Math.random() * Math.PI * 2;
+      const regime = data.regime || 'LEO';
       // radius purely visual — scaled from real altitude so LEO/MEO/GEO nest correctly
       let radius;
-      if (data.regime === 'GEO') radius = 5.5 + Math.random() * 1.5;
-      else if (data.regime === 'MEO') radius = 3.0 + Math.random() * 1.5;
+      if (regime === 'GEO') radius = 5.5 + Math.random() * 1.5;
+      else if (regime === 'MEO') radius = 3.0 + Math.random() * 1.5;
       else radius = 1.8 + Math.random() * 0.7;
 
-      mesh.position.x = Math.cos(angle) * radius;
-      mesh.position.z = Math.sin(angle) * radius;
-      mesh.position.y = (Math.random() - 0.5) * 2.5;
+      // Altitude sets the vertical offset, and is STORED because the animation
+      // loop previously overwrote position.y every frame — flattening every
+      // orbit into one band no matter how high the object really is.
+      const altY = Math.max(-2, Math.min(2, ((data.altKm || 600) / 35786) * 4 - 2));
 
-      mesh.userData = {
+      const group = new THREE.Group();
+      group.position.x = Math.cos(angle) * radius;
+      group.position.z = Math.sin(angle) * radius;
+      group.position.y = altY;
+      group.add(mesh);
+
+      // Invisible, oversized tap target. The debris mesh is only ~0.15 units
+      // across — impossible to hit reliably on a phone — so picking uses this
+      // sphere instead. The raycaster returns the proxy, so userData lives here.
+      const proxy = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 8, 8),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      // NOTE: `price` here is DISPLAY ONLY. The server must recompute the real
+      // amount from the NORAD id — never trust this value at checkout.
+      proxy.userData = {
         noradId: String(data.noradId),
         type: data.officialName || 'Unidentified Debris',
         stat: `${data.tierLabel || 'Catalogued debris'} • Alt: ${data.altKm ? data.altKm.toLocaleString() : '?'} km`,
         altKm: data.altKm,
-        price: data.regime === 'GEO' ? 9.99 : data.regime === 'MEO' ? 5.99 : 1.99,
-        regime: data.regime || 'LEO',
+        price: regime === 'GEO' ? 9.99 : regime === 'MEO' ? 5.99 : 1.99,
+        regime,
         orbitRadius: radius,
-        angle
+        angle,
+        altY
       };
-      scene.add(mesh);
-      trashPieces.push(mesh);
+      group.add(proxy);
+
+      // Share ONE userData object between the Group and its proxy, so every
+      // existing reader (dropdown, search, orbit filter, animation) can keep
+      // using group.userData, while raycast hits — which return the proxy —
+      // resolve to the exact same data.
+      group.userData = proxy.userData;
+
+      scene.add(group);
+      trashPieces.push(group);
     }
 
     async function initLiveDebrisField() {
@@ -537,6 +635,12 @@
       else if (sector === 'MEO') camera.position.z = 7.5;
       else if (sector === 'GEO') camera.position.z = 12.0;
       else camera.position.z = 5.5;
+      // Don't leave the inspector open on an object the filter just hid.
+      // r128's raycaster ignores .visible, so a hidden object would otherwise
+      // remain claimable through an open panel.
+      if (selectedDebris && !(sector === 'ALL' || selectedDebris.regime === sector)) {
+        closeHud();
+      }
     }
 
     // =====================================================================
@@ -700,9 +804,36 @@
 
     function showError(msg) {
       const banner = document.getElementById('error-banner');
-      banner.textContent = msg;
+      // Prefix so the banner never reads as an ambiguous fragment, and so a
+      // success message can never be mistaken for it (or vice-versa).
+      banner.textContent = '⚠ ' + msg;
       banner.style.display = 'block';
       setTimeout(() => { banner.style.display = 'none'; }, 6000);
+    }
+
+    // Non-error confirmations (e.g. "copied") must not appear in the RED error
+    // banner. Reuse the ticker line so success reads as success, then restore
+    // the live feed automatically.
+    let toastTimer = null;
+    function showToast(msg) {
+      const ticker = document.getElementById('live-ticker');
+      if (!ticker) return;
+      ticker.textContent = msg;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { updateTickerFeed(); }, 2500);
+    }
+
+    // Collapse/expand the header panel. On phones it can cover most of the 3D
+    // view and eat taps, so let people get it out of the way.
+    function togglePanel() {
+      const shell = document.getElementById('panel-shell');
+      if (!shell) return;
+      const collapsed = shell.classList.toggle('collapsed');
+      const btn = document.getElementById('panel-toggle');
+      if (btn) {
+        btn.textContent = collapsed ? '\u25B8' : '\u25BE';
+        btn.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
+      }
     }
 
     // =====================================================================
@@ -936,7 +1067,7 @@
       const text = buildShareText();
       try {
         await navigator.clipboard.writeText(text);
-        showError('Copied to clipboard!');
+        showToast('📋 Copied to clipboard!');
       } catch (err) {
         console.error(err);
         showError('Could not copy — long-press the text above to copy manually.');
@@ -1014,7 +1145,10 @@
           t.userData.angle += 0.0012;
           t.position.x = Math.cos(t.userData.angle) * t.userData.orbitRadius;
           t.position.z = Math.sin(t.userData.angle) * t.userData.orbitRadius;
-          t.position.y = Math.sin(t.userData.angle * 2) * 0.3;
+          // Preserve the altitude-derived Y offset and add a gentle bob,
+          // instead of overwriting altitude with a fixed swing.
+          const baseY = t.userData.altY !== undefined ? t.userData.altY : 0;
+          t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
           t.rotation.x += 0.01;
         }
       });
@@ -1029,9 +1163,21 @@
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(trashPieces); // decorative hearts excluded on purpose
+      // recursive=true so picking reaches the invisible proxy spheres nested
+      // inside each Group. Decorative hearts stay excluded on purpose (they
+      // live in decorativePieces, which is never passed here).
+      const intersects = raycaster.intersectObjects(trashPieces, true);
 
-      if (intersects.length > 0) inspectDebris(intersects[0].object.userData);
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hit.userData && hit.userData.decorative) return;
+        // r128's raycaster ignores .visible, so confirm the owning group is
+        // actually shown — otherwise an orbit-filtered object stays claimable.
+        let owner = hit;
+        while (owner.parent && owner.parent.type !== 'Scene') owner = owner.parent;
+        if (owner.visible === false) return;
+        inspectDebris(hit.userData);
+      }
     });
 
     window.addEventListener('resize', () => {

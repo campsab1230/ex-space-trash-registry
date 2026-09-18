@@ -4,14 +4,19 @@
 // paid, and has the webhook finished writing the registry row yet?" without
 // being able to fake either answer itself. Uses the anon key since it only
 // reads public data.
+//
+// FIX: this project is "type": "module" (ESM). This file previously used
+// require()/module.exports, which throws "require is not defined" at load
+// time — before a single line of logic ran — producing a blanket 500 on
+// every request. Converted to ESM. Logic is otherwise unchanged.
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
 
@@ -41,4 +46,4 @@ module.exports = async (req, res) => {
     console.error('verify-session error:', err);
     return res.status(500).json({ error: 'Verification failed' });
   }
-};
+}

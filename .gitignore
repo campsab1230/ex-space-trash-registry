@@ -1,0 +1,8 @@
+node_modules/
+.env
+.dev.vars
+.vercel/
+*.log
+
+# Customer purchase data (dedication names, Stripe session IDs) — must NEVER be published
+backup/

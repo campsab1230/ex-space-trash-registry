@@ -9,17 +9,28 @@
 //   Developers -> Webhooks -> Add endpoint -> https://yourdomain.com/api/stripe-webhook
 //   Event to send: checkout.session.completed
 // Then copy the "Signing secret" it gives you into STRIPE_WEBHOOK_SECRET.
+//
+// FIX #1 (the outage): this project is "type": "module" (ESM). This file used
+//   require()/module.exports, which throws "require is not defined" at load
+//   time — every request 500'd before any logic ran. Converted to ESM.
+//   Note the ESM form of the body-parser opt-out is a named export:
+//   `export const config = ...` (not `module.exports.config = ...`).
+//
+// FIX #2: the old version wrote the registry row without first checking
+//   session.payment_status. A completed session is not always a paid one
+//   (e.g. some delayed payment methods), so a claim could be granted for
+//   money that never arrived.
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Vercel-specific: disable the default body parser so we can verify the
 // raw request body against the Stripe signature (signature verification
 // fails if the body has been touched/reserialized).
-module.exports.config = { api: { bodyParser: false } };
+export const config = { api: { bodyParser: false } };
 
 function buffer(readable) {
   return new Promise((resolve, reject) => {
@@ -30,7 +41,7 @@ function buffer(readable) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
 
   const sig = req.headers['stripe-signature'];
@@ -53,6 +64,12 @@ module.exports = async (req, res) => {
       return res.status(200).json({ received: true }); // ack so Stripe doesn't retry forever
     }
 
+    // Do not grant a claim for an unpaid session.
+    if (session.payment_status !== 'paid') {
+      console.log('Session not paid — ignoring', session.id, session.payment_status);
+      return res.status(200).json({ received: true, ignored: 'unpaid' });
+    }
+
     try {
       const { error } = await supabase.from('global_registry').insert([{
         norad_id: noradId,
@@ -69,6 +86,11 @@ module.exports = async (req, res) => {
       // the insert idempotent if Stripe retries the webhook).
       if (error && error.code !== '23505') {
         console.error('Failed to write registry row:', error);
+        // Do NOT clear the lock if we failed to record the sale.
+        return res.status(500).json({ error: 'Internal error processing webhook' });
+      }
+      if (error && error.code === '23505') {
+        console.warn('Duplicate webhook delivery for session', session.id, '— already recorded.');
       }
 
       await supabase.from('pending_claims').delete().eq('norad_id', noradId);
@@ -80,4 +102,4 @@ module.exports = async (req, res) => {
   }
 
   return res.status(200).json({ received: true });
-};
+}
