@@ -236,6 +236,18 @@
         </div>
 
         <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #8ab4f8; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enable-mail-addon" onchange="toggleMailAddon()" style="width: auto; margin: 0;" />
+                📬 MAIL A PHYSICAL COPY (+$5.00)
+            </label>
+            <p id="mail-addon-note" style="display: none; font-size: 0.72rem; color: #8ab4f8; margin: 8px 0 0 26px; line-height: 1.5;">
+                We'll ask for a mailing address at checkout. Printed on heavy stock and
+                posted within 5 business days. Physical orders are final once shipped —
+                see <a href="/legal.html" target="_blank" rel="noopener noreferrer" style="color:#4ef2d2;">Terms</a>.
+            </p>
+        </div>
+
+        <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
             <label style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">CHOOSE YOUR CERTIFICATE DESIGN</label>
             <div style="display: flex; gap: 10px;">
                 <button type="button" id="tpl-btn-a" onclick="selectCertTemplate('a')"
@@ -300,7 +312,11 @@
     <div id="success-modal" class="modal" style="max-width: 500px; text-align: center; border-color: #00ff00;">
         <h2 style="color:#00ff00; letter-spacing: 2px; margin: 0 0 15px 0;">CONGRATULATIONS.</h2>
         <p style="color: #fff; font-size: 1.1rem; margin-bottom: 10px;"><strong id="success-name" style="color:#efc84e;"></strong> now has a piece of space garbage with their name on it.</p>
-        <p style="color: #8ab4f8; font-size: 0.9rem; margin-bottom: 25px;">Humanity has officially progressed backwards.</p>
+        <p style="color: #8ab4f8; font-size: 0.9rem; margin-bottom: 15px;">Humanity has officially progressed backwards.</p>
+
+        <p id="success-mail-note" style="display:none; color:#4ef2d2; font-size:0.85rem; margin-bottom:20px; line-height:1.5;">
+            📬 Your printed certificate is on its way — we post physical copies within 5 business days.
+        </p>
 
         <button id="download-cert-btn" style="background: #efc84e; color: #000; border: none; padding: 15px; font-size: 1.1rem; box-shadow: 0 0 15px #efc84e; margin-bottom: 15px;">
             📸 DOWNLOAD CERTIFICATE FOR SOCIALS
@@ -805,6 +821,7 @@
     }
 
     const EMOJI_ADDON_PRICE = 1.99;
+    const MAIL_ADDON_PRICE = 5.00;
 
     function getSanitizedEmoji() {
       const raw = document.getElementById('custom-emoji-input').value.trim();
@@ -822,9 +839,22 @@
       return document.getElementById('enable-emoji-addon').checked;
     }
 
+    function isMailAddonSelected() {
+      return document.getElementById('enable-mail-addon').checked;
+    }
+
+    function toggleMailAddon() {
+      document.getElementById('mail-addon-note').style.display =
+        isMailAddonSelected() ? 'block' : 'none';
+      updateCheckoutTotal();
+      track('mail_addon_toggled', { value: isMailAddonSelected() ? MAIL_ADDON_PRICE : 0 });
+    }
+
     function getCurrentTotal() {
       if (!selectedDebris) return 0;
-      return selectedDebris.price + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0);
+      return selectedDebris.price
+        + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0)
+        + (isMailAddonSelected() ? MAIL_ADDON_PRICE : 0);
     }
 
     function updateCheckoutTotal() {
@@ -957,6 +987,8 @@
       document.getElementById('enable-emoji-addon').checked = false;
       document.getElementById('emoji-picker').style.display = 'none';
       document.getElementById('custom-emoji-input').value = '💔';
+      document.getElementById('enable-mail-addon').checked = false;
+      document.getElementById('mail-addon-note').style.display = 'none';
       document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       document.getElementById('checkout-button').disabled = false;
       selectCertTemplate('a');
@@ -1034,6 +1066,7 @@
             emojiAddon: emojiAddonSelected,
             emojiOverlay: emojiOverlay,
             certificateTemplate: certTemplate,
+            mailAddon: isMailAddonSelected(),
             userEmail: currentUser
           })
         });
@@ -1287,8 +1320,9 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName, customMessage, emojiOverlay, template } = result.metadata;
-        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template };
+        const { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailAddon } = result.metadata;
+        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailAddon };
+        document.getElementById('success-mail-note').style.display = mailAddon ? 'block' : 'none';
         track('checkout_completed', { noradId, value: result.amountTotal != null ? result.amountTotal / 100 : undefined });
         document.getElementById('verifying-modal').style.display = 'none';
         document.getElementById('success-name').innerText = exName;

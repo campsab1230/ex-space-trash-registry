@@ -25,6 +25,22 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const EMOJI_ADDON_PRICE = 1.99;
+// Physical certificate mailed to an address of the buyer's choosing.
+const MAIL_ADDON_PRICE = 5.00;
+
+// Countries a physical certificate can be posted to.
+//
+// READ THIS BEFORE ADDING COUNTRIES — the $5 charge is a DOMESTIC price.
+// A rigid mailer + first-class postage inside the US runs roughly $2-3, so $5
+// leaves a small margin. International postage for the same item is typically
+// $15-25, which means every GB/AU/NZ order at $5 would LOSE about $15.
+//
+// So this is US-only by default. To mail internationally, do BOTH of these:
+//   1. add the country code below, e.g. ['US', 'CA', 'GB']
+//   2. charge an international rate instead of MAIL_ADDON_PRICE — otherwise
+//      you are paying customers to buy from you.
+// (Stripe validates the address format for whatever is listed here.)
+const MAILABLE_COUNTRIES = ['US'];
 
 // Tier prices. Must match the client's tiers in index.html.
 const PRICE_BY_REGIME = { LEO: 1.99, MEO: 5.99, GEO: 9.99 };
@@ -50,7 +66,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, mailAddon, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -69,6 +85,8 @@ export default async function handler(req, res) {
     const cleanTemplate = (certificateTemplate === 'b') ? 'b' : 'a';
 
     const wantsEmojiAddon = emojiAddon === true;
+    // Strict boolean: anything that is not exactly `true` means no physical copy.
+    const wantsMail = mailAddon === true;
     const cleanEmoji = wantsEmojiAddon
       ? Array.from(String(emojiOverlay || '').replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/gu, '')).slice(0, 4).join('')
       : '';
@@ -133,6 +151,19 @@ export default async function handler(req, res) {
         quantity: 1,
       });
     }
+    if (wantsMail) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Physical Certificate — printed & mailed',
+            description: 'A printed copy of this certificate, posted to your chosen address.',
+          },
+          unit_amount: Math.round(MAIL_ADDON_PRICE * 100),
+        },
+        quantity: 1,
+      });
+    }
 
     // Build the site URL defensively — this must NEVER produce "https://undefined".
     const HARDCODED_FALLBACK = 'https://www.exspacetrash.com';
@@ -158,7 +189,15 @@ export default async function handler(req, res) {
         customMessage: cleanMessage,
         emojiOverlay: cleanEmoji,
         certificateTemplate: cleanTemplate,
+        // 'true'/'false' rather than a boolean — Stripe metadata is string-only.
+        mailAddon: wantsMail ? 'true' : 'false',
       },
+      // Stripe collects and validates the postal address itself, and the
+      // address arrives on the webhook as session.shipping_details. We never
+      // ask for or store a mailing address in our own database.
+      ...(wantsMail ? {
+        shipping_address_collection: { allowed_countries: MAILABLE_COUNTRIES },
+      } : {}),
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,
       customer_email: (userEmail && String(userEmail).includes('@')) ? userEmail : undefined,

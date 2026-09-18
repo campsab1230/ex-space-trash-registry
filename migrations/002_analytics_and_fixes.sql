@@ -69,6 +69,27 @@ UPDATE global_registry SET certificate_template = 'a' WHERE certificate_template
 
 
 -- ---------------------------------------------------------------------------
+-- 1c. Physical / mailed orders
+--
+--     Flagged so there is ONE query that lists every order still needing to be
+--     printed and posted. Without this, physical orders are invisible until
+--     someone remembers to check Stripe, and a paying customer waits forever.
+--
+--     The mailing ADDRESS is intentionally not stored here. Stripe collected it
+--     and it lives on the payment in the Stripe dashboard.
+--
+--     Why the SALE still succeeds if this is missing: api/stripe-webhook.js
+--     retries the insert without these optional columns rather than losing a
+--     paid customer's claim.
+-- ---------------------------------------------------------------------------
+ALTER TABLE global_registry
+  ADD COLUMN IF NOT EXISTS physical_mail BOOLEAN NOT NULL DEFAULT false;
+
+-- If the column was added by hand without a default, normalise existing rows.
+UPDATE global_registry SET physical_mail = false WHERE physical_mail IS NULL;
+
+
+-- ---------------------------------------------------------------------------
 -- 2. First-party analytics
 --
 --    WHY: the site has made ~$11 and there is no way to see WHERE people fall

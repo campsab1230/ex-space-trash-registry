@@ -85,6 +85,16 @@ export default async function handler(req, res) {
       // templates that actually exist. Anything unexpected becomes 'a'.
       const template = (session.metadata && session.metadata.certificateTemplate === 'b') ? 'b' : 'a';
 
+      // Did they pay for a physical copy? Flagged here so there is a queryable
+      // list of orders that still need to be printed and posted — the seller
+      // should never have to click through Stripe one payment at a time.
+      //
+      // The MAILING ADDRESS is deliberately NOT stored here. Stripe collected it
+      // (shipping_details) and it lives on the payment in the Stripe dashboard.
+      // Copying a customer's home address into another database is a liability
+      // with no upside: the dashboard already has it, already secured.
+      const wantsMail = !!(session.metadata && session.metadata.mailAddon === 'true');
+
       // IMPORTANT — graceful degradation, do not remove this.
       // `certificate_template` arrives with migration 002. If that migration has
       // not been applied yet, PostgREST rejects the ENTIRE insert because of one
@@ -92,19 +102,24 @@ export default async function handler(req, res) {
       // no claim at all. A missing column must never cost someone their
       // purchase, so on that specific error we simply retry without the column.
       // The choice is not lost either: it is still readable from Stripe metadata.
+      const optional = { certificate_template: template, physical_mail: wantsMail };
       let { error } = await supabase
         .from('global_registry')
-        .insert([Object.assign({ certificate_template: template }, baseRow)]);
+        .insert([Object.assign({}, optional, baseRow)]);
 
+      // If migration 002 has not been applied yet, PostgREST rejects the WHOLE
+      // insert over one unknown column. Retrying without the optional columns
+      // keeps the sale. The buyer's choices are still recoverable from Stripe
+      // metadata, so nothing is truly lost.
       const msg = (error && error.message) || '';
       const missingColumn = !!error && (
         error.code === 'PGRST204' ||
         error.code === '42703' ||
-        /could not find the 'certificate_template' column/i.test(msg) ||
-        /column .*certificate_template.* does not exist/i.test(msg)
+        /could not find the '(certificate_template|physical_mail)' column/i.test(msg) ||
+        /column .*(certificate_template|physical_mail).* does not exist/i.test(msg)
       );
       if (missingColumn) {
-        console.warn('certificate_template column is missing — apply migrations/002. Recording the claim without it so the buyer is not lost.');
+        console.warn('migrations/002 not applied — recording the claim without certificate_template/physical_mail so the buyer is not lost. Apply migrations/002.');
         ({ error } = await supabase.from('global_registry').insert([baseRow]));
       }
 

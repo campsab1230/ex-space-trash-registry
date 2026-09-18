@@ -22,11 +22,13 @@ after your ex, and download a novelty certificate to prove it.
    design, pay via Stripe.
 3. **Certificates** — two artwork templates (Orbital / Parchment) with the
    buyer's text rendered on top, downloadable as high-resolution PNG.
-4. **Public registry wall** (`/wall`) — every claim, server-rendered and
+4. **Physical mail option** — +$5.00 prints and posts a paper copy (US only).
+   Stripe collects the address; it is never stored in our database.
+5. **Public registry wall** (`/wall`) — every claim, server-rendered and
    crawlable.
-5. **Per-claim share pages** (`/trash/:noradId`) — real OG tags + generated
+6. **Per-claim share pages** (`/trash/:noradId`) — real OG tags + generated
    preview image, so shared links show a card.
-6. **First-party analytics** — cookie-free funnel tracking.
+7. **First-party analytics** — cookie-free funnel tracking.
 
 ---
 
@@ -55,12 +57,26 @@ after your ex, and download a novelty certificate to prove it.
 | `pending_claims` | Soft-lock during checkout | No anon access at all |
 | `analytics_events` | Funnel events | No anon access; written via service role |
 
+### Orders needing a physical mailing
+
+One query lists everything that still needs printing and posting:
+
+```sql
+SELECT norad_id, dedication_name, created_at
+  FROM global_registry
+ WHERE physical_mail = true
+ ORDER BY created_at;
+```
+
+The mailing **address** is not in this table by design — Stripe collected it and
+it lives on the payment in the Stripe dashboard.
+
 ### `global_registry` columns (verified against the live table)
 
 `id`, `created_at`, `norad_id`, `debris_name`, `dedication_name`,
 `stripe_session_id`, `owner_email`, `user_email`, `google_user_id`,
 `custom_quote`, `custom_message`, `stat`, `emoji_overlay`, `has_broken_heart`,
-`certificate_template`
+`certificate_template`, `physical_mail`
 
 ### Data flow
 
