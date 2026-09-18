@@ -50,7 +50,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -62,6 +62,11 @@ export default async function handler(req, res) {
     const cleanStat = String(stat || '').slice(0, 200);
     const cleanMessage = String(customMessage || '').replace(/[^a-zA-Z0-9 .,'!?-]/g, '').slice(0, 25);
     const noradIdStr = String(noradId).slice(0, 20);
+
+    // Certificate artwork choice. Allow-list: anything that is not exactly
+    // 'b' falls back to 'a', so a malformed value can never reach Stripe
+    // metadata and then the renderer as an unexpected template.
+    const cleanTemplate = (certificateTemplate === 'b') ? 'b' : 'a';
 
     const wantsEmojiAddon = emojiAddon === true;
     const cleanEmoji = wantsEmojiAddon
@@ -152,6 +157,7 @@ export default async function handler(req, res) {
         exName: cleanName,
         customMessage: cleanMessage,
         emojiOverlay: cleanEmoji,
+        certificateTemplate: cleanTemplate,
       },
       success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`,

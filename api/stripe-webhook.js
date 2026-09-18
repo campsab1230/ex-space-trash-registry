@@ -71,7 +71,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { error } = await supabase.from('global_registry').insert([{
+      const baseRow = {
         norad_id: noradId,
         debris_name: type,
         dedication_name: exName,
@@ -79,7 +79,34 @@ export default async function handler(req, res) {
         custom_message: customMessage || null,
         emoji_overlay: emojiOverlay || null,
         stripe_session_id: session.id,
-      }]);
+      };
+
+      // Which certificate artwork the buyer picked, validated against the two
+      // templates that actually exist. Anything unexpected becomes 'a'.
+      const template = (session.metadata && session.metadata.certificateTemplate === 'b') ? 'b' : 'a';
+
+      // IMPORTANT — graceful degradation, do not remove this.
+      // `certificate_template` arrives with migration 002. If that migration has
+      // not been applied yet, PostgREST rejects the ENTIRE insert because of one
+      // unknown column — and a customer who has already paid would end up with
+      // no claim at all. A missing column must never cost someone their
+      // purchase, so on that specific error we simply retry without the column.
+      // The choice is not lost either: it is still readable from Stripe metadata.
+      let { error } = await supabase
+        .from('global_registry')
+        .insert([Object.assign({ certificate_template: template }, baseRow)]);
+
+      const msg = (error && error.message) || '';
+      const missingColumn = !!error && (
+        error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        /could not find the 'certificate_template' column/i.test(msg) ||
+        /column .*certificate_template.* does not exist/i.test(msg)
+      );
+      if (missingColumn) {
+        console.warn('certificate_template column is missing — apply migrations/002. Recording the claim without it so the buyer is not lost.');
+        ({ error } = await supabase.from('global_registry').insert([baseRow]));
+      }
 
       // 23505 = unique_violation — object was already claimed (shouldn't
       // normally happen thanks to the pending_claims lock, but this makes

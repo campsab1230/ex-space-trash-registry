@@ -1,5 +1,7 @@
 {
   "rewrites": [
-    { "source": "/trash/:slug", "destination": "/api/trash-page" }
+    { "source": "/trash/:slug", "destination": "/api/trash-page" },
+    { "source": "/wall", "destination": "/api/wall" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ]
 }

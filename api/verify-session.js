@@ -40,6 +40,7 @@ export default async function handler(req, res) {
         exName: session.metadata?.exName,
         customMessage: session.metadata?.customMessage,
         emojiOverlay: session.metadata?.emojiOverlay,
+        certificateTemplate: session.metadata?.certificateTemplate,
       },
     });
   } catch (err) {

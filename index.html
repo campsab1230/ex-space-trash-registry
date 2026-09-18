@@ -235,7 +235,37 @@
             </div>
         </div>
 
-        <div id="cert-text" style="line-height: 1.6; font-size: 0.95rem; margin: 15px 0; text-align: left; font-family: monospace; background: rgba(0,0,0,0.5); padding: 15px; border-left: 3px solid #4ef2d2;"></div>
+        <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">CHOOSE YOUR CERTIFICATE DESIGN</label>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" id="tpl-btn-a" onclick="selectCertTemplate('a')"
+                        style="flex: 1; margin: 0; padding: 8px 6px; font-size: 0.75rem; border-color: #4ef2d2; color: #4ef2d2;">
+                    ☄️ ORBITAL
+                </button>
+                <button type="button" id="tpl-btn-b" onclick="selectCertTemplate('b')"
+                        style="flex: 1; margin: 0; padding: 8px 6px; font-size: 0.75rem; border-color: #555; color: #888;">
+                    📜 PARCHMENT
+                </button>
+            </div>
+        </div>
+
+        <!-- LIVE preview of the exact certificate being bought. Updates on every
+             keystroke, so the name appears on the artwork before payment. -->
+        <div style="margin: 15px 0;">
+            <div class="cert-preview-viewport">
+                <div class="cert-stage cert-tpl-a" id="cert-preview-stage" data-cert-stage>
+                    <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
+                    <div class="cert-panel">
+                        <div class="cert-name" data-cert-role="name">UNKNOWN</div>
+                        <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
+                        <div class="cert-meta" data-cert-role="meta">--</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size: 0.7rem; color: #555; text-align: center; margin-top: 6px;">
+                Live preview — your download will be high-resolution and watermark-free.
+            </p>
+        </div>
 
         <button id="preview-btn" onclick="generatePreview()" style="border-color: #00f0ff; color: #00f0ff; margin-bottom: 10px;">👀 PREVIEW SOCIAL CERTIFICATE</button>
 
@@ -298,24 +328,71 @@
         <p id="verifying-text" style="color:#8ab4f8; font-size:0.9rem;">Confirming your transaction with Stripe before locking in the claim.</p>
     </div>
 
-    <!-- Hidden Certificate Template for Social Media Export -->
-    <div id="export-cert" style="position: fixed; left: 0px; top: 0; width: 800px; height: 800px; padding: 40px; background: #020208; border: 8px solid #4ef2d2; color: #fff; font-family: 'Share Tech Mono', monospace; text-align: center; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; z-index: -1; opacity: 0; pointer-events: none;">
-        <div id="export-emoji" style="font-size: 4rem; display: none; margin-bottom: -10px;">--</div>
-        <h1 style="color: #ff5577; margin-bottom: 10px; font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px #ff5577;">OFFICIAL SPACE TRASH ASSIGNMENT</h1>
+    <!-- ================================================================= -->
+    <!-- CERTIFICATE RENDERER                                              -->
+    <!-- Two artwork templates, each 1024x765. Text is overlaid on a        -->
+    <!-- positioned panel so it is ALWAYS legible regardless of how busy    -->
+    <!-- the underlying artwork is, and so the customer's typed text is     -->
+    <!-- visible before they pay.                                           -->
+    <!--                                                                    -->
+    <!-- The same markup is used twice: once scaled down as a LIVE preview  -->
+    <!-- inside the purchase modal, once full-size as the hidden exporter   -->
+    <!-- that html2canvas captures. Both are driven by fillCertificate(),   -->
+    <!-- which writes through [data-cert-role] attributes — so the preview  -->
+    <!-- and the paid export can never drift apart.                         -->
+    <!-- ================================================================= -->
+    <style>
+      .cert-stage { position: relative; width: 1024px; height: 765px;
+                    background-size: 1024px 765px; background-repeat: no-repeat;
+                    font-family: 'Share Tech Mono', monospace; overflow: hidden; }
+      .cert-tpl-a { background-image: url('/assets/certs/cert-a-orbital.png'); }
+      .cert-tpl-b { background-image: url('/assets/certs/cert-b-parchment.png'); }
 
-        <div style="margin: 30px 0; padding: 30px; border: 2px dashed #555; background: rgba(10, 15, 25, 0.8);">
-            <p style="font-size: 1.4rem; color: #ccc;">After extensive review, NORAD object <span id="export-id" style="color: #4ef2d2;">--</span></p>
-            <p style="font-size: 1.4rem; color: #ccc;">has officially been associated with</p>
-            <h2 id="export-ex-name" style="color: #efc84e; font-size: 4.5rem; margin: 15px 0; text-transform: uppercase; text-shadow: 0 0 15px #efc84e;">--</h2>
-            <p id="export-message" style="font-size: 1.6rem; color: #4ef2d2; margin: 10px 0; font-style: italic; display: none;">"--"</p>
-            <p style="font-size: 1.4rem; color: #ccc;">for all eternity.*</p>
-            <p style="font-size: 0.9rem; color: #888; margin-top: 15px;">*or until the Sun explodes.</p>
-        </div>
+      .cert-panel { position: absolute; box-sizing: border-box; display: flex;
+                    flex-direction: column; align-items: center; justify-content: center;
+                    text-align: center; }
+      /* Panel sits over the artwork's own pre-printed paragraph so our text
+         always wins on legibility. Frame, title and stamps stay visible. */
+      .cert-tpl-a .cert-panel { left: 154px; top: 286px; width: 716px; height: 216px;
+                    background: rgba(2, 4, 12, 0.80); border: 1px solid rgba(78, 242, 210, 0.35);
+                    border-radius: 6px; padding: 14px 24px; }
+      .cert-tpl-b .cert-panel { left: 266px; top: 328px; width: 492px; height: 194px;
+                    background: rgba(250, 245, 228, 0.93); border: 1px solid rgba(120, 90, 30, 0.35);
+                    border-radius: 4px; padding: 12px 18px; }
 
-        <div style="text-align: left; background: rgba(0,0,0,0.8); padding: 25px; border-left: 5px solid #ff5577;">
-            <p style="margin: 10px 0; font-size: 1.5rem;"><strong>CLASSIFICATION:</strong> <span id="export-type" style="color: #fff;">--</span></p>
-            <p style="margin: 10px 0; font-size: 1.2rem; color: #8ab4f8; font-style: italic;" id="export-stat">--</p>
+      .cert-name { font-weight: 700; line-height: 1.05; word-break: break-word; text-transform: uppercase; }
+      .cert-tpl-a .cert-name { color: #efc84e; text-shadow: 0 0 14px rgba(239, 200, 78, 0.55); font-size: 52px; }
+      .cert-tpl-b .cert-name { color: #3a2a10; font-family: Georgia, 'Times New Roman', serif; font-size: 44px; }
+
+      .cert-quote { font-style: italic; margin-top: 8px; word-break: break-word; }
+      .cert-tpl-a .cert-quote { color: #4ef2d2; font-size: 20px; }
+      .cert-tpl-b .cert-quote { color: #8a2b1f; font-family: Georgia, 'Times New Roman', serif; font-size: 19px; }
+
+      .cert-meta { margin-top: 10px; font-size: 14px; letter-spacing: 1px; }
+      .cert-tpl-a .cert-meta { color: #8ab4f8; }
+      .cert-tpl-b .cert-meta { color: #6b5a3a; font-family: Georgia, 'Times New Roman', serif; }
+
+      .cert-emoji { position: absolute; line-height: 1; }
+      .cert-tpl-a .cert-emoji { right: 66px; top: 116px; font-size: 58px; }
+      .cert-tpl-b .cert-emoji { right: 148px; top: 148px; font-size: 54px; }
+
+      /* Live preview is the full-size stage scaled down. */
+      .cert-preview-viewport { position: relative; width: 430px; height: 321px;
+                    overflow: hidden; margin: 0 auto; border: 1px solid #333;
+                    border-radius: 4px; background: #020208; }
+      .cert-preview-viewport .cert-stage { transform: scale(0.4199); transform-origin: top left; }
+    </style>
+
+    <!-- Hidden, full-size export target (what html2canvas captures) -->
+    <div id="export-cert" style="position: fixed; left: 0; top: 0; z-index: -1; opacity: 0; pointer-events: none;">
+      <div class="cert-stage cert-tpl-a" data-cert-stage>
+        <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
+        <div class="cert-panel">
+          <div class="cert-name" data-cert-role="name">--</div>
+          <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
+          <div class="cert-meta" data-cert-role="meta">--</div>
         </div>
+      </div>
     </div>
 
     <script>
@@ -328,7 +405,41 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRta2tkbWZvdWdlcXVka3FldmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk2NTYsImV4cCI6MjEwMDkyNTY1Nn0.eYD34whbirEkIEpgB8fg1NI4_023Ec4OEcyhjPe01RI';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const API_BASE = ''; // same-origin serverless functions under /api
+    // Bump this whenever index.html changes. It rides along on every analytics
+    // event, so "conversion dropped on the 12th" can be tied to a deploy.
+    const APP_VERSION = '1.1.0';
     let currentUser = null;
+
+    // =====================================================================
+    // 1b. FIRST-PARTY ANALYTICS
+    //     There is currently NO visibility into where visitors fall out, which
+    //     is why every change so far has been a guess. These events are the
+    //     minimum needed to see the funnel:
+    //       page_view -> debris_loaded -> object_selected -> checkout_started
+    //     No cookies, no third parties, no PII. Always fire-and-forget: a
+    //     tracking failure must never break the page.
+    // =====================================================================
+    function track(event, data) {
+      try {
+        const payload = Object.assign({ event, path: location.pathname, v: APP_VERSION }, data || {});
+        // keepalive lets the event survive an immediate navigation (e.g. the
+        // checkout_started beacon firing right before we redirect to Stripe).
+        fetch(`${API_BASE}/api/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(() => {});
+      } catch (e) { /* analytics must never throw into the page */ }
+    }
+
+    // A session-id in the URL means this is a returning buyer, not a fresh
+    // page view — don't pollute the funnel with our own redirect.
+    function initAnalytics() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('session_id')) return;
+      track('page_view');
+    }
 
     // --- Snark for flavor text only (never used to fabricate fake debris) ---
     const exSnarkQuotes = [
@@ -727,55 +838,114 @@
       const picker = document.getElementById('emoji-picker');
       picker.style.display = isEmojiAddonSelected() ? 'block' : 'none';
       updateCheckoutTotal();
-      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+      if (selectedDebris) updateLiveCertPreview();
     }
 
     function setEmoji(emoji) {
       document.getElementById('custom-emoji-input').value = emoji;
-      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+      if (selectedDebris) updateLiveCertPreview();
     }
 
     document.getElementById('custom-emoji-input').addEventListener('input', () => {
-      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+      if (selectedDebris) updateLiveCertPreview();
     });
 
-    function renderCertText(exName, message) {
-      const container = document.getElementById('cert-text');
-      container.innerHTML = '';
-      const line1 = document.createElement('div');
-      line1.appendChild(document.createTextNode('NORAD ID: '));
-      const span = document.createElement('span');
-      span.className = 'highlight';
-      span.textContent = `#${selectedDebris.noradId}`;
-      line1.appendChild(span);
-      container.appendChild(line1);
+    // =====================================================================
+    // 6b. CERTIFICATE ENGINE
+    //     A single fillCertificate() writes every dynamic field into any
+    //     .cert-stage, addressed by [data-cert-role]. The live in-modal
+    //     preview and the hidden full-resolution exporter are BOTH driven by
+    //     it, so what the customer sees before paying cannot drift from the
+    //     file they download after paying.
+    // =====================================================================
+    let certTemplate = 'a';
 
-      const line2 = document.createElement('div');
-      line2.style.marginTop = '10px';
-      line2.appendChild(document.createTextNode('This piece of trash will be officially and permanently associated with '));
-      const strong = document.createElement('strong');
-      strong.style.color = '#efc84e';
-      strong.style.fontSize = '1.2rem';
-      strong.textContent = exName;
-      line2.appendChild(strong);
-      if (isEmojiAddonSelected() && getSanitizedEmoji()) {
-        line2.appendChild(document.createTextNode(' '));
-        const emojiSpan = document.createElement('span');
-        emojiSpan.style.fontSize = '1.3rem';
-        emojiSpan.textContent = getSanitizedEmoji();
-        line2.appendChild(emojiSpan);
-      }
-      line2.appendChild(document.createTextNode('.'));
-      container.appendChild(line2);
+    function selectCertTemplate(tpl) {
+      certTemplate = (tpl === 'b') ? 'b' : 'a';
+      const isA = certTemplate === 'a';
+      const btnA = document.getElementById('tpl-btn-a');
+      const btnB = document.getElementById('tpl-btn-b');
+      btnA.style.borderColor = isA ? '#4ef2d2' : '#555';
+      btnA.style.color = isA ? '#4ef2d2' : '#888';
+      btnB.style.borderColor = isA ? '#555' : '#4ef2d2';
+      btnB.style.color = isA ? '#888' : '#4ef2d2';
+      updateLiveCertPreview();
+    }
 
-      if (message) {
-        const line3 = document.createElement('div');
-        line3.style.marginTop = '10px';
-        line3.style.color = '#4ef2d2';
-        line3.style.fontStyle = 'italic';
-        line3.textContent = `"${message}"`;
-        container.appendChild(line3);
+    // The single meta line under the name, e.g. "#35786 · COSMOS 2251 DEB · 1234 KM".
+    // Trimmed hard so it can never wrap onto a second line and collide with
+    // the artwork's pre-printed footer.
+    function buildCertMeta(noradId, type, stat) {
+      const parts = [`#${noradId}`];
+      if (type) parts.push(String(type).toUpperCase().slice(0, 30));
+      const alt = String(stat || '').match(/Alt:\s*([\d,]+\s*km)/i);
+      if (alt) parts.push(alt[1].toUpperCase());
+      return parts.join('  ·  ');
+    }
+
+    function fillCertificate(stage, opts) {
+      if (!stage) return;
+      const tpl = (opts.template === 'b') ? 'b' : 'a';
+      stage.classList.remove('cert-tpl-a', 'cert-tpl-b');
+      stage.classList.add(tpl === 'b' ? 'cert-tpl-b' : 'cert-tpl-a');
+
+      const name = stage.querySelector('[data-cert-role="name"]');
+      const quote = stage.querySelector('[data-cert-role="quote"]');
+      const meta = stage.querySelector('[data-cert-role="meta"]');
+      const emoji = stage.querySelector('[data-cert-role="emoji"]');
+
+      if (name) name.textContent = opts.name || 'UNKNOWN';
+      if (quote) {
+        if (opts.quote) { quote.textContent = `"${opts.quote}"`; quote.style.display = 'block'; }
+        else { quote.style.display = 'none'; }
       }
+      if (emoji) {
+        if (opts.emoji) { emoji.textContent = opts.emoji; emoji.style.display = 'block'; }
+        else { emoji.style.display = 'none'; }
+      }
+      if (meta) meta.textContent = opts.meta || '';
+    }
+
+    // The certificate artwork is applied via CSS background-image. html2canvas
+    // can only capture what is already decoded, so if a customer paid and
+    // immediately hit Download, a cold background could capture as an empty
+    // frame. ensureCertImages() is awaited before every capture.
+    const CERT_IMAGE_URLS = [
+      '/assets/certs/cert-a-orbital.png',
+      '/assets/certs/cert-b-parchment.png'
+    ];
+    let certImagesPromise = null;
+    function ensureCertImages() {
+      if (certImagesPromise) return certImagesPromise;
+      certImagesPromise = Promise.all(CERT_IMAGE_URLS.map(url => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => { console.warn('cert art failed to load:', url); resolve(); };
+        img.src = url;
+      })));
+      return certImagesPromise;
+    }
+    ensureCertImages(); // warm the cache immediately, not at export time
+
+    // Derived fresh from the form on every call, so any input handler can just
+    // call updateLiveCertPreview() with no arguments.
+    function updateLiveCertPreview() {
+      const stage = document.getElementById('cert-preview-stage');
+      if (!stage) return;
+      const nameInput = document.getElementById('ex-name-input');
+      fillCertificate(stage, {
+        template: certTemplate,
+        // Show a placeholder until they actually type, rather than committing
+        // a real "UNKNOWN" onto the artwork.
+        name: (nameInput && nameInput.value.trim()) ? getSanitizedExName() : 'YOUR EX',
+        quote: getSanitizedMessage(),
+        emoji: isEmojiAddonSelected() ? getSanitizedEmoji() : '',
+        meta: buildCertMeta(
+          selectedDebris ? selectedDebris.noradId : '—',
+          selectedDebris ? selectedDebris.type : '',
+          selectedDebris ? selectedDebris.stat : ''
+        )
+      });
     }
 
     function openCertificateModal() {
@@ -789,17 +959,17 @@
       document.getElementById('custom-emoji-input').value = '💔';
       document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       document.getElementById('checkout-button').disabled = false;
-      renderCertText('UNKNOWN', '');
+      selectCertTemplate('a');
       document.getElementById('certificate').style.display = 'block';
     }
 
     document.getElementById('ex-name-input').addEventListener('input', () => {
-      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+      if (selectedDebris) updateLiveCertPreview();
     });
 
     document.getElementById('custom-message-input').addEventListener('input', (e) => {
       document.getElementById('message-char-count').textContent = String(getSanitizedMessage().length);
-      if (selectedDebris) renderCertText(getSanitizedExName(), getSanitizedMessage());
+      if (selectedDebris) updateLiveCertPreview();
     });
 
     function showError(msg) {
@@ -863,6 +1033,7 @@
             price: selectedDebris.price,
             emojiAddon: emojiAddonSelected,
             emojiOverlay: emojiOverlay,
+            certificateTemplate: certTemplate,
             userEmail: currentUser
           })
         });
@@ -888,31 +1059,31 @@
     // =====================================================================
     // 9. PREVIEW & EXPORT
     // =====================================================================
-    function setExportMessage(message) {
-      const el = document.getElementById('export-message');
-      if (message) {
-        el.textContent = `"${message}"`;
-        el.style.display = 'block';
-      } else {
-        el.style.display = 'none';
-      }
+    // Fills the hidden full-resolution exporter. Returns the element ready for
+    // html2canvas. Every path (preview, download, native share) goes through
+    // here, so the rendered artwork and the paid-for artwork are identical.
+    function renderExportCert(opts) {
+      const stage = document.querySelector('#export-cert [data-cert-stage]');
+      fillCertificate(stage, opts);
+      return document.getElementById('export-cert');
     }
 
-    function setExportEmoji(emoji) {
-      const el = document.getElementById('export-emoji');
-      if (emoji) {
-        el.textContent = emoji;
-        el.style.display = 'block';
-      } else {
-        el.style.display = 'none';
+    // Shared capture helper — the export stage is always 1024x765, so a
+    // white/paper-colored background matches template B; template A's artwork
+    // covers the full canvas anyway.
+    async function captureCertificate(scale) {
+      await ensureCertImages();
+      const certElement = document.getElementById('export-cert');
+      certElement.style.opacity = '1';
+      try {
+        return await html2canvas(certElement, { backgroundColor: '#faf5e4', scale });
+      } finally {
+        certElement.style.opacity = '0';
       }
     }
 
     async function generatePreview() {
       if (!selectedDebris) return;
-      const exName = getSanitizedExName();
-      const customMessage = getSanitizedMessage();
-      const emojiOverlay = isEmojiAddonSelected() ? getSanitizedEmoji() : '';
       const previewModal = document.getElementById('preview-modal');
       const loadingText = document.getElementById('preview-loading');
       const imgContainer = document.getElementById('preview-image-container');
@@ -922,57 +1093,53 @@
       loadingText.style.display = 'block';
       imgContainer.style.display = 'none';
 
-      document.getElementById('export-ex-name').innerText = exName;
-      document.getElementById('export-id').innerText = `#${selectedDebris.noradId}`;
-      document.getElementById('export-type').innerText = selectedDebris.type.toUpperCase();
-      document.getElementById('export-stat').innerText = `"${selectedDebris.stat}"`;
-      setExportMessage(customMessage);
-      setExportEmoji(emojiOverlay);
+      renderExportCert({
+        template: certTemplate,
+        name: getSanitizedExName(),
+        quote: getSanitizedMessage(),
+        emoji: isEmojiAddonSelected() ? getSanitizedEmoji() : '',
+        meta: buildCertMeta(selectedDebris.noradId, selectedDebris.type, selectedDebris.stat)
+      });
 
-      const certElement = document.getElementById('export-cert');
-      certElement.style.opacity = '1';
       try {
-        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 1 });
+        // Device-pixel-aware scale so the preview is crisp on retina screens
+        // instead of visibly soft.
+        const canvas = await captureCertificate(Math.min(2, window.devicePixelRatio || 1));
         imgResult.src = canvas.toDataURL('image/png');
         loadingText.style.display = 'none';
         imgContainer.style.display = 'block';
       } catch (err) {
         console.error(err);
         loadingText.innerText = 'Preview failed to generate. Please try again.';
-      } finally {
-        certElement.style.opacity = '0';
       }
     }
 
-    async function downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay) {
+    async function downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay, template) {
       const btn = document.getElementById('download-cert-btn');
       btn.innerText = "GENERATING...";
 
-      document.getElementById('export-ex-name').innerText = exName;
-      document.getElementById('export-id').innerText = `#${noradId}`;
-      document.getElementById('export-type').innerText = type.toUpperCase();
-      document.getElementById('export-stat').innerText = `"${stat}"`;
-      setExportMessage(customMessage);
-      setExportEmoji(emojiOverlay);
-
-      const certElement = document.getElementById('export-cert');
-      certElement.style.opacity = '1';
+      renderExportCert({
+        template: template || certTemplate,
+        name: exName,
+        quote: customMessage,
+        emoji: emojiOverlay,
+        meta: buildCertMeta(noradId, type, stat)
+      });
 
       try {
-        const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
+        const canvas = await captureCertificate(2);
         const link = document.createElement('a');
         link.download = `SpaceTrash_NORAD_${noradId}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         btn.innerText = "DOWNLOAD COMPLETE!";
+        track('certificate_downloaded', { noradId });
         setTimeout(() => {
           btn.innerText = "📸 DOWNLOAD CERTIFICATE FOR SOCIALS";
         }, 3000);
       } catch (err) {
         console.error(err);
         btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
-      } finally {
-        certElement.style.opacity = '0';
       }
     }
 
@@ -988,6 +1155,16 @@
       return `I just gave ${exName} a permanent piece of space garbage.${message} 🚀💔 exspacetrash.com`;
     }
 
+    // Prefer the per-claim share page (/trash/:noradId) over the bare origin:
+    // it carries real OG tags, a generated preview image, and a canonical URL,
+    // so a shared link renders a card instead of a naked link.
+    function buildShareUrl() {
+      if (lastCertData && lastCertData.noradId) {
+        return `${location.origin}/trash/${encodeURIComponent(lastCertData.noradId)}`;
+      }
+      return location.origin;
+    }
+
     function isLikelyMobile() {
       return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     }
@@ -999,7 +1176,7 @@
       btn.textContent = 'PREPARING...';
 
       const shareText = buildShareText();
-      const shareUrl = window.location.origin;
+      const shareUrl = buildShareUrl();
 
       try {
         // Attaching the actual certificate image means rendering it to canvas
@@ -1011,17 +1188,15 @@
         // image-attaching path on phones/tablets where it's expected and fast.
         if (lastCertData && isLikelyMobile() && navigator.canShare) {
           btn.textContent = 'GENERATING IMAGE...';
-          document.getElementById('export-ex-name').innerText = lastCertData.exName;
-          document.getElementById('export-id').innerText = `#${lastCertData.noradId}`;
-          document.getElementById('export-type').innerText = lastCertData.type.toUpperCase();
-          document.getElementById('export-stat').innerText = `"${lastCertData.stat}"`;
-          setExportMessage(lastCertData.customMessage);
-          setExportEmoji(lastCertData.emojiOverlay);
+          renderExportCert({
+            template: lastCertData.template || certTemplate,
+            name: lastCertData.exName,
+            quote: lastCertData.customMessage,
+            emoji: lastCertData.emojiOverlay,
+            meta: buildCertMeta(lastCertData.noradId, lastCertData.type, lastCertData.stat)
+          });
 
-          const certElement = document.getElementById('export-cert');
-          certElement.style.opacity = '1';
-          const canvas = await html2canvas(certElement, { backgroundColor: '#020208', scale: 2 });
-          certElement.style.opacity = '0';
+          const canvas = await captureCertificate(2);
 
           const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
           const file = new File([blob], `SpaceTrash_${lastCertData.noradId}.png`, { type: 'image/png' });
@@ -1055,16 +1230,22 @@
 
     function shareToPlatform(platform) {
       const text = encodeURIComponent(buildShareText());
-      const url = encodeURIComponent(window.location.origin);
+      const url = encodeURIComponent(buildShareUrl());
       let href = '';
-      if (platform === 'twitter') href = `https://twitter.com/intent/tweet?text=${text}`;
+      // Twitter/WhatsApp need the link passed explicitly — previously they
+      // only got the caption, so the recipient had nothing to click.
+      if (platform === 'twitter') href = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
       if (platform === 'facebook') href = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
-      if (platform === 'whatsapp') href = `https://wa.me/?text=${text}`;
-      if (href) window.open(href, '_blank', 'width=550,height=420,noopener,noreferrer');
+      if (platform === 'whatsapp') href = `https://wa.me/?text=${text}%20${url}`;
+      if (href) {
+        track('share_opened', { noradId: lastCertData ? lastCertData.noradId : undefined, value: undefined });
+        window.open(href, '_blank', 'width=550,height=420,noopener,noreferrer');
+      }
     }
 
     async function copyShareLink() {
-      const text = buildShareText();
+      // Copy the caption AND the claim link — a caption alone is unclickable.
+      const text = `${buildShareText()}\n${buildShareUrl()}`;
       try {
         await navigator.clipboard.writeText(text);
         showToast('📋 Copied to clipboard!');
@@ -1106,12 +1287,13 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName, customMessage, emojiOverlay } = result.metadata;
-        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay };
+        const { noradId, type, stat, exName, customMessage, emojiOverlay, template } = result.metadata;
+        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template };
+        track('checkout_completed', { noradId, value: result.amountTotal != null ? result.amountTotal / 100 : undefined });
         document.getElementById('verifying-modal').style.display = 'none';
         document.getElementById('success-name').innerText = exName;
         document.getElementById('download-cert-btn').onclick = () => {
-          downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay);
+          downloadCertificateImage(noradId, type, stat, exName, customMessage, emojiOverlay, template);
         };
         document.getElementById('success-modal').style.display = 'block';
       } catch (err) {
@@ -1148,6 +1330,49 @@
           // Preserve the altitude-derived Y offset and add a gentle bob,
           // instead of overwriting altitude with a fixed swing.
           const baseY = t.userData.altY !== undefined ? t.userData.altY : 0;
+          t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
+          t.rotation.x += 0.01;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#ui') || e.target.closest('#hud-panel') || e.target.closest('.modal')) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      // recursive=true so picking reaches the invisible proxy spheres nested
+      // inside each Group. Decorative hearts stay excluded on purpose (they
+      // live in decorativePieces, which is never passed here).
+      const intersects = raycaster.intersectObjects(trashPieces, true);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hit.userData && hit.userData.decorative) return;
+        // r128's raycaster ignores .visible, so confirm the owning group is
+        // actually shown — otherwise an orbit-filtered object stays claimable.
+        let owner = hit;
+        while (owner.parent && owner.parent.type !== 'Scene') owner = owner.parent;
+        if (owner.visible === false) return;
+        inspectDebris(hit.userData);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
+ed ? t.userData.altY : 0;
           t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
           t.rotation.x += 0.01;
         }
