@@ -297,6 +297,28 @@ They exist because the bugs that actually cost money here are **silent**:
   the block used to reach the footer), and the stage must stay `border-box`
   (otherwise its 76/66px padding inflates the 1024×765 box and html2canvas
   clips the footer off the bottom — which is exactly what happened). It asserts
-  all three across both markup instances and both templates.
+  all three across both markup instances and both templates. It also guards the
+  hero image (below).
+
+- **The hero must NOT point at the template artwork.** `cert-a-orbital.png` and
+  `cert-b-parchment.png` are deliberately word-free — every word on a real
+  certificate is HTML overlaid at capture time. Pointing the landing-page hero
+  `<img>` at that raw art therefore shows shoppers a **blank sheet**, which is
+  exactly the bug that shipped: the markup was correct in the dev repo but the
+  fix never reached `index.html` in the deploy repo, so production kept serving
+  the old `src`. The hero uses `cert-sample-b.png` instead — a one-off render of
+  the *finished* template-B certificate (placeholder name, quote, object ID)
+  baked to a single flat image. If the certificate design changes, re-render
+  that sample; do not repoint the hero at the raw art. `check-cert-layout.mjs`
+  fails if the hero `src` resolves to a template artwork or the sample is
+  missing.
+
+- **A collapsed panel must hide something visible.** The mobile arrow only
+  appeared to do nothing: its `.header-panel.collapsed` rules hid `.field-label`,
+  `.search-row` and `#search-match-count`, all of which live inside *closed*
+  `<details>` blocks, so the click flipped the glyph and nothing else. The rule
+  set now hides the panel's actually-visible body (hero sub-head, certificate,
+  price block, trust/proof rows) while keeping the brand line, the hook and the
+  CTA — a collapsed panel stays a usable header rather than an empty bar.
 
 All five exit non-zero on failure, so they can gate a deploy.
