@@ -41,7 +41,9 @@ export default async function handler(req, res) {
         customMessage: session.metadata?.customMessage,
         emojiOverlay: session.metadata?.emojiOverlay,
         certificateTemplate: session.metadata?.certificateTemplate,
-        mailAddon: session.metadata?.mailAddon === 'true',
+        mailTier: ['domestic', 'international'].includes(session.metadata?.mailTier)
+          ? session.metadata.mailTier
+          : 'none',
         // Only sent back so the success screen can confirm the plan. The actual
         // address stays in Stripe; it is never returned to the browser or stored.
         shipToCountry: (session.shipping_details && session.shipping_details.address && session.shipping_details.address.country) || null,

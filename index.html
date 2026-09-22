@@ -81,12 +81,58 @@
         input.name-input { width: 100%; background: #0a0f18; border: 1px solid #4ef2d2; color: #efc84e; font-family: inherit; font-size: 1.1rem; padding: 10px; border-radius: 4px; text-transform: uppercase; margin-top: 10px; }
         input.name-input:focus { outline: none; box-shadow: 0 0 10px rgba(78,242,210,0.5); }
 
+        /* The rule above is scoped to `input.`, so a <select> carrying the same
+           class got NONE of it and fell back to the browser default — a light
+           grey control with low-contrast text in the middle of a dark neon
+           modal. Styled explicitly here, including the option list, which
+           Android renders with its own (not inherited) colours. */
+        select.name-input { width: 100%; background: #0a0f18; border: 1px solid #4ef2d2; color: #efc84e;
+                            font-family: inherit; font-size: 1rem; padding: 10px; border-radius: 4px;
+                            margin-top: 10px; appearance: none; -webkit-appearance: none;
+                            background-image: linear-gradient(45deg, transparent 50%, #4ef2d2 50%),
+                                              linear-gradient(135deg, #4ef2d2 50%, transparent 50%);
+                            background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+                            background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; }
+        select.name-input:focus { outline: none; box-shadow: 0 0 10px rgba(78,242,210,0.5); }
+        /* Option colours must be set on the option itself — some Android
+           browsers ignore anything inherited from the select. */
+        select.name-input option { background: #0a0f18; color: #efc84e; }
+
+        /* ===== COLD-TRAFFIC HERO =========================================
+           Most visitors now arrive from a DM with no idea what this is.
+           Order is: hook -> what it is -> ONE button -> payoff -> price.
+           Everything exploratory is demoted into a collapsed <details> so it
+           cannot compete with the single call to action. */
+        .eyebrow-brand { margin: 0; color: #555; font-size: 0.7rem; letter-spacing: 2px; }
+        .hero-hook { font-size: 1.5rem; line-height: 1.15; margin: 6px 0 8px; color: #fff;
+                     letter-spacing: 1px; text-shadow: 0 0 12px #4ef2d2; }
+        .hero-sub { color: #d7e6ff; font-size: 0.9rem; margin: 0 0 12px; line-height: 1.45; }
+        .hero-cta { background: #00f0ff; color: #000; border: none; font-size: 1.05rem;
+                    padding: 15px; margin-top: 0; box-shadow: 0 0 18px rgba(0,240,255,0.55); }
+        .hero-cta:hover { background: #4ef2d2; box-shadow: 0 0 28px rgba(0,240,255,0.85); }
+        .hero-price { color: #efc84e; font-size: 0.82rem; margin: 10px 0 0; }
+        .hero-cert-wrap { margin: 12px auto 0; max-width: 250px; cursor: pointer;
+                          border: 1px solid rgba(78,242,210,0.25);
+                          border-radius: 6px; overflow: hidden; background: #020208; }
+        .hero-cert-wrap:hover { border-color: #4ef2d2; box-shadow: 0 0 16px rgba(78,242,210,0.25); }
+        .hero-cert-wrap img { display: block; width: 100%; height: auto; }
+        .hero-cert-cap { font-size: 0.7rem; color: #8ab4f8; margin: 5px 0 0; text-align: center; }
+        .hero-trust { color: #8ab4f8; font-size: 0.78rem; line-height: 1.5; margin: 8px 0 0; }
+        .hero-trust a { color: #4ef2d2; }
+        .hero-more { margin-top: 12px; border-top: 1px dashed #333; padding-top: 10px; }
+        .hero-more summary { cursor: pointer; color: #8ab4f8; font-size: 0.78rem; }
+        .hero-more summary:hover { color: #4ef2d2; }
+        .hero-warn { color: #ff5577; font-size: 0.75rem; margin: 8px 0 0; display: none; }
+
         #loading-banner { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 5; color: #4ef2d2; font-size: 1rem; text-align: center; }
         #error-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: rgba(255,85,119,0.15); border: 1px solid #ff5577; color: #ff5577; padding: 10px 18px; border-radius: 6px; display: none; max-width: 90%; text-align: center; }
 
         @media (max-width: 768px) {
             #ui { padding: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
             h1 { font-size: 1.2rem; }
+            .hero-hook { font-size: 1.3rem; }
+            .hero-sub { font-size: 0.85rem; }
+            .hero-cert-wrap { max-width: 100%; }
             .top-bar { flex-direction: column; gap: 10px; }
             .auth-panel { text-align: left; }
             #hud-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; max-height: 45vh; overflow-y: auto; touch-action: pan-y; }
@@ -122,32 +168,72 @@
         <div class="top-bar">
             <div class="hud-panel header-panel" id="panel-shell">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                    <h1>EXSPACETRASH.COM</h1>
+                                        <p class="eyebrow-brand">EXSPACETRASH.COM</p>
                     <button id="panel-toggle" type="button" aria-label="Collapse panel" onclick="togglePanel()">&#9662;</button>
                 </div>
-                <p style="color: #fff; font-weight: bold;">Name a real piece of space junk after your ex. Permanently.</p>
-                <p class="panel-sub" style="margin-top:8px; color:#efc84e; font-size: 1rem;">Tap a debris object, or search below. Claim it. Name it. Done.</p>
 
-                <label class="field-label" for="orbit-select">ORBIT SECTOR</label>
-                <div class="search-row">
-                    <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)">
-                        <option value="ALL">ALL ORBITS</option>
-                        <option value="LEO">LOW EARTH ORBIT (&lt; 2,000 km)</option>
-                        <option value="MEO">MEDIUM EARTH ORBIT (2,000–35,000 km)</option>
-                        <option value="GEO">GEOSTATIONARY (&gt; 35,000 km)</option>
-                    </select>
-                </div>
+                <!-- THE HOOK. A cold visitor arriving from a DM gets the joke
+                     in one line, before any of the 3D scene has loaded. -->
+                <h1 class="hero-hook">YOUR EX WANTED SPACE.<br>GIVE THEM SOME.</h1>
 
-                <label class="field-label" for="noradSearch">FIND SPECIFIC DEBRIS</label>
-                <div class="search-row">
-                    <input type="text" id="noradSearch" placeholder="Search NORAD ID or name..." oninput="filterDropdownBySearch(this.value)" onkeydown="handleSearchKeydown(event)" />
+                <p class="hero-sub">Name a real piece of tracked space junk after your ex &mdash; we put their name on an official orbital disposal certificate you can send them.</p>
+
+                <!-- ONE button. It picks a nice object for them and opens the
+                     personalisation form, so nobody has to hunt the 3D field.
+                     Left ENABLED on purpose: if it were disabled until the
+                     catalogue arrives, a slow or failed feed would leave a dead
+                     button. Instead the click handler explains the wait. -->
+                <button id="hero-cta" class="hero-cta" onclick="heroPrimaryAction()">&#128640; START MY CERTIFICATE</button>
+                <p id="hero-cta-note" class="hero-warn">Debris catalogue still loading &mdash; give it a second and tap again.</p>
+
+                <!-- THE PAYOFF, before any long explanation. People buy the
+                     certificate, not the 3D scene. This is the real artwork,
+                     already preloaded by ensureCertImages(). -->
+                <div class="hero-cert-wrap" onclick="heroPrimaryAction()" role="button" tabindex="0"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();heroPrimaryAction();}"
+                     aria-label="Start my certificate">
+                    <img src="/assets/certs/cert-b-parchment.png" alt="Example ExSpaceTrash orbital disposal certificate" width="1024" height="765">
                 </div>
-                <div id="search-match-count" style="font-size: 0.7rem; color: #555; margin-top: 2px;"></div>
-                <div class="search-row">
-                    <select id="trashDropdown" onchange="selectFromDropdown(this.value)">
-                        <option value="">-- Choose an Object --</option>
-                    </select>
-                </div>
+                <p class="hero-cert-cap">The actual certificate &mdash; high-resolution and watermark-free on download.</p>
+
+                <!-- Price up front. Cold traffic abandons when pricing is hidden. -->
+                <p class="hero-price">Certificates <strong>$1.99 &ndash; $9.99</strong> &middot; digital download included &middot; printed copies available</p>
+
+                <p class="hero-trust">Real NORAD-catalogued objects &middot; no account needed &middot; <a href="/wall">see who&rsquo;s already been sent up &rarr;</a></p>
+
+                <details class="hero-more">
+                    <summary>Yes, it&rsquo;s real &mdash; how does this work?</summary>
+                    <p style="margin-top:8px; color:#8ab4f8; font-size:0.8rem; line-height:1.55;">
+                        Every object here is a real piece of orbital debris from the public NORAD catalogue &mdash; spent rocket stages, dead satellites, collision fragments. Pick one, it gets your ex&rsquo;s name on a certificate, and we log it in the public registry. It is a <strong>novelty keepsake</strong>: you are not buying legal title to anything and we never claim an object is officially renamed.
+                    </p>
+                </details>
+
+                <details class="hero-more">
+                    <summary>Prefer to browse the catalogue yourself?</summary>
+                    <div style="margin-top:10px;">
+                        <label class="field-label" for="orbit-select">ORBIT SECTOR</label>
+                        <div class="search-row">
+                            <select id="orbit-select" onchange="filterDebrisByOrbit(this.value)">
+                                <option value="ALL">ALL ORBITS</option>
+                                <option value="LEO">LOW EARTH ORBIT (&lt; 2,000 km)</option>
+                                <option value="MEO">MEDIUM EARTH ORBIT (2,000–35,000 km)</option>
+                                <option value="GEO">GEOSTATIONARY (&gt; 35,000 km)</option>
+                            </select>
+                        </div>
+
+                        <label class="field-label" for="noradSearch">FIND SPECIFIC DEBRIS</label>
+                        <div class="search-row">
+                            <input type="text" id="noradSearch" placeholder="Search NORAD ID or name..." oninput="filterDropdownBySearch(this.value)" onkeydown="handleSearchKeydown(event)" />
+                        </div>
+                        <div id="search-match-count" style="font-size: 0.7rem; color: #555; margin-top: 2px;"></div>
+                        <div class="search-row">
+                            <select id="trashDropdown" onchange="selectFromDropdown(this.value)">
+                                <option value="">-- Choose an Object --</option>
+                            </select>
+                        </div>
+                        <p style="font-size:0.72rem; color:#555; margin-top:6px;">Or tap any object in the debris field behind this panel.</p>
+                    </div>
+                </details>
             </div>
 
             <div class="hud-panel auth-panel">
@@ -236,13 +322,18 @@
         </div>
 
         <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
-            <label style="font-size: 0.85rem; color: #8ab4f8; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="enable-mail-addon" onchange="toggleMailAddon()" style="width: auto; margin: 0;" />
-                📬 MAIL A PHYSICAL COPY (+$5.00)
+            <label for="mail-tier" style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">
+                📬 ALSO MAIL ME A PHYSICAL COPY?
             </label>
-            <p id="mail-addon-note" style="display: none; font-size: 0.72rem; color: #8ab4f8; margin: 8px 0 0 26px; line-height: 1.5;">
-                We'll ask for a mailing address at checkout. Printed on heavy stock and
-                posted within 5 business days. Physical orders are final once shipped —
+            <select id="mail-tier" onchange="toggleMailAddon()" class="name-input"
+                    style="text-transform: none; width: 100%; cursor: pointer;">
+                <option value="none">No — digital download only</option>
+                <option value="domestic">Yes — mail within the USA (+$5.00)</option>
+                <option value="international">Yes — mail internationally (+$18.00)</option>
+            </select>
+            <p id="mail-addon-note" style="display: none; font-size: 0.72rem; color: #8ab4f8; margin: 8px 0 0 0; line-height: 1.5;">
+                <span id="mail-addon-note-text"></span>
+                Physical orders are final once shipped —
                 see <a href="/legal.html" target="_blank" rel="noopener noreferrer" style="color:#4ef2d2;">Terms</a>.
             </p>
         </div>
@@ -266,8 +357,8 @@
         <div style="margin: 15px 0;">
             <div class="cert-preview-viewport">
                 <div class="cert-stage cert-tpl-a" id="cert-preview-stage" data-cert-stage>
-                    <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
                     <div class="cert-panel">
+                        <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
                         <div class="cert-name" data-cert-role="name">UNKNOWN</div>
                         <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
                         <div class="cert-meta" data-cert-role="meta">--</div>
@@ -364,33 +455,71 @@
       .cert-tpl-a { background-image: url('/assets/certs/cert-a-orbital.png'); }
       .cert-tpl-b { background-image: url('/assets/certs/cert-b-parchment.png'); }
 
+      /* The panel is OPAQUE on purpose. It previously used alpha (0.80 / 0.93)
+         and the artwork's own printed paragraph showed straight through it,
+         colliding with the buyer's name. A solid fill is the only reliable fix
+         on artwork this busy.
+         Each panel is sized to sit over the artwork's paragraph block and stop
+         before its stamps / footer. */
+      /* NO BOX. A hard-edged rectangle reads as a sticker pasted over the art.
+         Instead: a soft radial scrim — opaque right where the text sits, faded
+         to fully transparent well before the edge, so there is no visible
+         border and the artwork shows through around the words. */
       .cert-panel { position: absolute; box-sizing: border-box; display: flex;
-                    flex-direction: column; align-items: center; justify-content: center;
+                    flex-direction: column; align-items: center;
                     text-align: center; }
-      /* Panel sits over the artwork's own pre-printed paragraph so our text
-         always wins on legibility. Frame, title and stamps stay visible. */
-      .cert-tpl-a .cert-panel { left: 154px; top: 286px; width: 716px; height: 216px;
-                    background: rgba(2, 4, 12, 0.80); border: 1px solid rgba(78, 242, 210, 0.35);
-                    border-radius: 6px; padding: 14px 24px; }
-      .cert-tpl-b .cert-panel { left: 266px; top: 328px; width: 492px; height: 194px;
-                    background: rgba(250, 245, 228, 0.93); border: 1px solid rgba(120, 90, 30, 0.35);
-                    border-radius: 4px; padding: 12px 18px; }
 
-      .cert-name { font-weight: 700; line-height: 1.05; word-break: break-word; text-transform: uppercase; }
-      .cert-tpl-a .cert-name { color: #efc84e; text-shadow: 0 0 14px rgba(239, 200, 78, 0.55); font-size: 52px; }
-      .cert-tpl-b .cert-name { color: #3a2a10; font-family: Georgia, 'Times New Roman', serif; font-size: 44px; }
+      /* Template A — content anchored to the TOP of the scrim, which lifts the
+         name up under the artwork's subtitle instead of dropping it across the
+         middle of the Earth. */
+      .cert-tpl-a .cert-panel {
+                    left: 96px; top: 196px; width: 832px; height: 340px;
+                    justify-content: flex-start; padding: 22px 34px 0;
+                    background: radial-gradient(ellipse 72% 56% at 50% 42%,
+                                rgba(2, 4, 12, 0.95) 0%,
+                                rgba(2, 4, 12, 0.88) 40%,
+                                rgba(2, 4, 12, 0.50) 70%,
+                                rgba(2, 4, 12, 0.00) 100%); }
 
-      .cert-quote { font-style: italic; margin-top: 8px; word-break: break-word; }
-      .cert-tpl-a .cert-quote { color: #4ef2d2; font-size: 20px; }
-      .cert-tpl-b .cert-quote { color: #8a2b1f; font-family: Georgia, 'Times New Roman', serif; font-size: 19px; }
+      /* Template B — content anchored to the BOTTOM, which lands the name on the
+         artwork's own "Recipient: ______" line rather than over its paragraph. */
+      .cert-tpl-b .cert-panel {
+                    left: 196px; top: 286px; width: 632px; height: 356px;
+                    justify-content: flex-end; padding: 0 30px 34px;
+                    background: radial-gradient(ellipse 74% 58% at 50% 58%,
+                                rgba(250, 245, 228, 0.97) 0%,
+                                rgba(250, 245, 228, 0.94) 44%,
+                                rgba(250, 245, 228, 0.58) 72%,
+                                rgba(250, 245, 228, 0.00) 100%); }
 
-      .cert-meta { margin-top: 10px; font-size: 14px; letter-spacing: 1px; }
-      .cert-tpl-a .cert-meta { color: #8ab4f8; }
-      .cert-tpl-b .cert-meta { color: #6b5a3a; font-family: Georgia, 'Times New Roman', serif; }
+      /* The emoji now sits in normal flow inside the panel rather than floating
+         over the artwork, so it can never land on top of the title. */
+      .cert-emoji { line-height: 1; margin-bottom: 4px; }
+      .cert-tpl-a .cert-emoji { font-size: 42px; }
+      .cert-tpl-b .cert-emoji { font-size: 38px; }
 
-      .cert-emoji { position: absolute; line-height: 1; }
-      .cert-tpl-a .cert-emoji { right: 66px; top: 116px; font-size: 58px; }
-      .cert-tpl-b .cert-emoji { right: 148px; top: 148px; font-size: 54px; }
+      .cert-name { font-weight: 700; line-height: 1.05; word-break: break-word;
+                   text-transform: uppercase; max-width: 100%; }
+      /* With the box gone, contrast now rides on the text shadow. Template A's
+         artwork is bright and busy, so the gold needs a heavy dark halo to stay
+         readable over the scrim AND over anything showing through it. */
+      .cert-tpl-a .cert-name { color: #efc84e; font-size: 48px;
+                    text-shadow: 0 2px 4px rgba(0,0,0,0.98), 0 0 16px rgba(0,0,0,0.95),
+                                 0 0 40px rgba(0,0,0,0.85); }
+      .cert-tpl-b .cert-name { color: #3a2a10; font-family: Georgia, 'Times New Roman', serif; font-size: 42px;
+                    text-shadow: 0 1px 1px rgba(255,255,255,0.9); }
+
+      .cert-quote { font-style: italic; margin-top: 8px; word-break: break-word; max-width: 100%; }
+      .cert-tpl-a .cert-quote { color: #4ef2d2; font-size: 19px;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.98), 0 0 12px rgba(0,0,0,0.9); }
+      .cert-tpl-b .cert-quote { color: #8a2b1f; font-family: Georgia, 'Times New Roman', serif; font-size: 18px;
+                    text-shadow: 0 1px 1px rgba(255,255,255,0.85); }
+
+      .cert-meta { margin-top: 12px; font-size: 13px; letter-spacing: 1px; max-width: 100%; }
+      .cert-tpl-a .cert-meta { color: #8ab4f8;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.98), 0 0 10px rgba(0,0,0,0.9); }
+      .cert-tpl-b .cert-meta { color: #6b5a3a; font-family: Georgia, 'Times New Roman', serif;
+                    text-shadow: 0 1px 1px rgba(255,255,255,0.85); }
 
       /* Live preview is the full-size stage scaled down. */
       .cert-preview-viewport { position: relative; width: 430px; height: 321px;
@@ -402,8 +531,8 @@
     <!-- Hidden, full-size export target (what html2canvas captures) -->
     <div id="export-cert" style="position: fixed; left: 0; top: 0; z-index: -1; opacity: 0; pointer-events: none;">
       <div class="cert-stage cert-tpl-a" data-cert-stage>
-        <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
         <div class="cert-panel">
+          <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
           <div class="cert-name" data-cert-role="name">--</div>
           <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
           <div class="cert-meta" data-cert-role="meta">--</div>
@@ -687,10 +816,20 @@
         debrisList.forEach(createDebrisItem);
         populateDropdown();
         document.getElementById('loading-banner').style.display = 'none';
+        // The hero button only needs the data, not the first rendered frame.
+        const note = document.getElementById('hero-cta-note');
+        if (note) note.style.display = 'none';
+        track('debris_loaded', { value: debrisList.length });
       } catch (err) {
         console.error(err);
         document.getElementById('loading-banner').textContent =
           'COULD NOT REACH THE DEBRIS CATALOG. Refresh to retry.';
+        const note = document.getElementById('hero-cta-note');
+        if (note) {
+          note.textContent = 'Could not reach the debris catalogue \u2014 refresh to retry.';
+          note.style.display = 'block';
+        }
+        track('debris_failed');
       }
     }
     initLiveDebrisField();
@@ -821,7 +960,17 @@
     }
 
     const EMOJI_ADDON_PRICE = 1.99;
-    const MAIL_ADDON_PRICE = 5.00;
+
+    // Domestic is $5 (rigid mailer + first-class postage is roughly $2-3, so a
+    // small margin). International is $18 because international postage for the
+    // same item is typically $15-25 — at $5 every overseas order would LOSE
+    // about $15.
+    const MAIL_PRICES = { none: 0, domestic: 5.00, international: 18.00 };
+
+    const MAIL_NOTES = {
+      domestic: "We'll ask for your address at checkout. Printed on heavy stock and posted within 5 business days.",
+      international: "We'll ask for your address at checkout. Printed on heavy stock and posted within 5 business days — international delivery can take several weeks after posting."
+    };
 
     function getSanitizedEmoji() {
       const raw = document.getElementById('custom-emoji-input').value.trim();
@@ -839,22 +988,34 @@
       return document.getElementById('enable-emoji-addon').checked;
     }
 
+    function getMailTier() {
+      const el = document.getElementById('mail-tier');
+      const v = el ? el.value : 'none';
+      return Object.prototype.hasOwnProperty.call(MAIL_PRICES, v) ? v : 'none';
+    }
+
     function isMailAddonSelected() {
-      return document.getElementById('enable-mail-addon').checked;
+      return getMailTier() !== 'none';
     }
 
     function toggleMailAddon() {
-      document.getElementById('mail-addon-note').style.display =
-        isMailAddonSelected() ? 'block' : 'none';
+      const tier = getMailTier();
+      const note = document.getElementById('mail-addon-note');
+      if (tier === 'none') {
+        note.style.display = 'none';
+      } else {
+        document.getElementById('mail-addon-note-text').textContent = MAIL_NOTES[tier] + ' ';
+        note.style.display = 'block';
+      }
       updateCheckoutTotal();
-      track('mail_addon_toggled', { value: isMailAddonSelected() ? MAIL_ADDON_PRICE : 0 });
+      track('mail_addon_toggled', { value: MAIL_PRICES[tier] });
     }
 
     function getCurrentTotal() {
       if (!selectedDebris) return 0;
       return selectedDebris.price
         + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0)
-        + (isMailAddonSelected() ? MAIL_ADDON_PRICE : 0);
+        + MAIL_PRICES[getMailTier()];
     }
 
     function updateCheckoutTotal() {
@@ -924,7 +1085,20 @@
       const meta = stage.querySelector('[data-cert-role="meta"]');
       const emoji = stage.querySelector('[data-cert-role="emoji"]');
 
-      if (name) name.textContent = opts.name || 'UNKNOWN';
+      if (name) {
+        name.textContent = opts.name || 'UNKNOWN';
+        // Auto-fit: the name field allows up to 30 characters, which at full
+        // size overflowed the panel. Step the type down as it gets longer so
+        // it always fits on one line.
+        const len = name.textContent.length;
+        const base = tpl === 'b' ? 42 : 48;
+        const scaled = len <= 8  ? base
+                     : len <= 12 ? base * 0.82
+                     : len <= 16 ? base * 0.68
+                     : len <= 22 ? base * 0.56
+                     : base * 0.46;
+        name.style.fontSize = Math.round(scaled) + 'px';
+      }
       if (quote) {
         if (opts.quote) { quote.textContent = `"${opts.quote}"`; quote.style.display = 'block'; }
         else { quote.style.display = 'none'; }
@@ -987,7 +1161,7 @@
       document.getElementById('enable-emoji-addon').checked = false;
       document.getElementById('emoji-picker').style.display = 'none';
       document.getElementById('custom-emoji-input').value = '💔';
-      document.getElementById('enable-mail-addon').checked = false;
+      document.getElementById('mail-tier').value = 'none';
       document.getElementById('mail-addon-note').style.display = 'none';
       document.getElementById('checkout-button').textContent = `CONFIRM PAYMENT ($${selectedDebris.price.toFixed(2)})`;
       document.getElementById('checkout-button').disabled = false;
@@ -1023,6 +1197,44 @@
       ticker.textContent = msg;
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => { updateTickerFeed(); }, 2500);
+    }
+
+    // =====================================================================
+    // 7b. COLD-TRAFFIC ENTRY POINT
+    //     The single most important interaction on the site. A visitor from a
+    //     DM must not have to understand the 3D scene, find an object, or hunt
+    //     for a button. This picks an unclaimed object for them and opens the
+    //     personalisation form directly.
+    //
+    //     Depends only on the debris JSON arriving -- not on three.js finishing
+    //     its first render -- so it unlocks in about a second rather than after
+    //     the whole scene builds.
+    // =====================================================================
+    function pickHeroDebris() {
+      if (!trashPieces.length) return null;
+      // Prefer something nobody has bought yet, so a first-time buyer is not
+      // dropped straight onto a LOCKED object.
+      const unclaimed = trashPieces.filter(m => !liveGlobalRegistry[m.userData.noradId]);
+      const pool = unclaimed.length ? unclaimed : trashPieces;
+      return pool[Math.floor(Math.random() * pool.length)].userData;
+    }
+
+    function heroPrimaryAction() {
+      const data = pickHeroDebris();
+      const note = document.getElementById('hero-cta-note');
+      if (!data) {
+        if (note) note.style.display = 'block';
+        return;
+      }
+      if (note) note.style.display = 'none';
+      track('hero_cta_clicked', { noradId: data.noradId });
+      // Route through the normal selection path so every downstream behaviour
+      // (HUD state, already-claimed check, server-side checkout guard) stays
+      // identical to the browse-it-yourself route.
+      inspectDebris(data);
+      closeHud();
+      openCertificateModal();
+      track('object_selected', { noradId: data.noradId });
     }
 
     // Collapse/expand the header panel. On phones it can cover most of the 3D
@@ -1066,7 +1278,7 @@
             emojiAddon: emojiAddonSelected,
             emojiOverlay: emojiOverlay,
             certificateTemplate: certTemplate,
-            mailAddon: isMailAddonSelected(),
+            mailTier: getMailTier(),
             userEmail: currentUser
           })
         });
@@ -1320,9 +1532,17 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailAddon } = result.metadata;
-        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailAddon };
-        document.getElementById('success-mail-note').style.display = mailAddon ? 'block' : 'none';
+        const { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier } = result.metadata;
+        lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier };
+        const mailNote = document.getElementById('success-mail-note');
+        if (mailTier && mailTier !== 'none') {
+          mailNote.textContent = mailTier === 'international'
+            ? '📬 Your printed certificate is on its way by international post — we dispatch within 5 business days, and delivery can take several weeks after that.'
+            : '📬 Your printed certificate is on its way — we post physical copies within 5 business days.';
+          mailNote.style.display = 'block';
+        } else {
+          mailNote.style.display = 'none';
+        }
         track('checkout_completed', { noradId, value: result.amountTotal != null ? result.amountTotal / 100 : undefined });
         document.getElementById('verifying-modal').style.display = 'none';
         document.getElementById('success-name').innerText = exName;

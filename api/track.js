@@ -23,6 +23,7 @@ const ALLOWED_EVENTS = new Set([
   'page_view',
   'debris_loaded',
   'debris_failed',
+  'hero_cta_clicked',
   'object_selected',
   'checkout_started',
   'checkout_completed',

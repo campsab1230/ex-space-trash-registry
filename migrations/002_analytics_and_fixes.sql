@@ -85,8 +85,21 @@ UPDATE global_registry SET certificate_template = 'a' WHERE certificate_template
 ALTER TABLE global_registry
   ADD COLUMN IF NOT EXISTS physical_mail BOOLEAN NOT NULL DEFAULT false;
 
--- If the column was added by hand without a default, normalise existing rows.
+-- Which postage class: 'none' | 'domestic' | 'international'.
+-- physical_mail is the quick "needs posting" filter; this says HOW to post it,
+-- which is what actually matters when packing the envelope.
+ALTER TABLE global_registry
+  ADD COLUMN IF NOT EXISTS mail_tier TEXT NOT NULL DEFAULT 'none';
+
+-- If either column was added by hand without a default, normalise existing rows.
 UPDATE global_registry SET physical_mail = false WHERE physical_mail IS NULL;
+UPDATE global_registry SET mail_tier = 'none'  WHERE mail_tier IS NULL;
+
+-- Consistency guard: a row cannot claim it needs posting with no tier, and
+-- cannot carry a tier while claiming nothing needs posting.
+UPDATE global_registry
+   SET mail_tier = 'domestic'
+ WHERE physical_mail = true AND mail_tier = 'none';
 
 
 -- ---------------------------------------------------------------------------

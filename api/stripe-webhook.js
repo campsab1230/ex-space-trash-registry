@@ -93,7 +93,12 @@ export default async function handler(req, res) {
       // (shipping_details) and it lives on the payment in the Stripe dashboard.
       // Copying a customer's home address into another database is a liability
       // with no upside: the dashboard already has it, already secured.
-      const wantsMail = !!(session.metadata && session.metadata.mailAddon === 'true');
+      // Tier name ('none' | 'domestic' | 'international'). Recorded so we know
+      // which postage class to use, not merely THAT something must be posted.
+      const allowedTiers = ['none', 'domestic', 'international'];
+      const rawTier = session.metadata && session.metadata.mailTier;
+      const mailTier = allowedTiers.includes(rawTier) ? rawTier : 'none';
+      const wantsMail = mailTier !== 'none';
 
       // IMPORTANT — graceful degradation, do not remove this.
       // `certificate_template` arrives with migration 002. If that migration has
@@ -102,7 +107,11 @@ export default async function handler(req, res) {
       // no claim at all. A missing column must never cost someone their
       // purchase, so on that specific error we simply retry without the column.
       // The choice is not lost either: it is still readable from Stripe metadata.
-      const optional = { certificate_template: template, physical_mail: wantsMail };
+      const optional = {
+        certificate_template: template,
+        physical_mail: wantsMail,   // kept: simple "needs posting" flag for reports
+        mail_tier: mailTier,        // which postage class
+      };
       let { error } = await supabase
         .from('global_registry')
         .insert([Object.assign({}, optional, baseRow)]);
@@ -115,8 +124,8 @@ export default async function handler(req, res) {
       const missingColumn = !!error && (
         error.code === 'PGRST204' ||
         error.code === '42703' ||
-        /could not find the '(certificate_template|physical_mail)' column/i.test(msg) ||
-        /column .*(certificate_template|physical_mail).* does not exist/i.test(msg)
+        /could not find the '(certificate_template|physical_mail|mail_tier)' column/i.test(msg) ||
+        /column .*(certificate_template|physical_mail|mail_tier).* does not exist/i.test(msg)
       );
       if (missingColumn) {
         console.warn('migrations/002 not applied — recording the claim without certificate_template/physical_mail so the buyer is not lost. Apply migrations/002.');
