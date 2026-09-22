@@ -10,12 +10,20 @@
 //   require()/module.exports, which throws "require is not defined" at load
 //   time — so every request 500'd before any logic ran. Converted to ESM.
 //
-// FIX #2 (a real hole): the old code validated that the price was *one of*
-//   [1.99, 5.99, 9.99], then charged it. It never checked the price matched
-//   the object's orbit. Anyone could claim a $9.99 GEO object for $1.99 by
-//   editing the request. The price tier is now derived from the object's own
-//   `stat` altitude (which you generate server-side), and the client's
-//   number is only used to verify the two agree.
+// PRICING (flat, as of 1.2.0): every orbit costs the same $7.99. The old
+//   orbit-based tiers (LEO/MEO/GEO = 1.99/5.99/9.99) averaged only $4.85 per
+//   sale and made a $1.99 Stripe fee eat 18% of revenue; a flat $7.99 lifts the
+//   catalogue average 1.65x and cuts that fee to 6.7%.
+//
+//   The object's own `stat` altitude is still parsed, but only as a sanity
+//   check on the object — it no longer determines the price, because every
+//   orbit now costs the same. This removes a failure mode: a malformed stat
+//   can no longer block a legitimate sale.
+//
+//   PRINTED is a BUNDLE total, not an add-on. It is the entire amount the
+//   buyer pays for digital + a posted copy, so the customer never has to add
+//   two numbers. The Stripe receipt still itemises the digital line so the
+//   printed line's cost is visible.
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
@@ -25,15 +33,24 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const EMOJI_ADDON_PRICE = 1.99;
-// Physical certificate, mailed. Two tiers, because postage is not one price:
-//   domestic      $5  — rigid mailer + first-class US postage runs ~$2-3
-//   international $18 — the same item posted overseas is typically $15-25
-// Charging the domestic rate for an international order would LOSE about $15
-// per sale, which is why these are separate tiers rather than one checkbox.
-//
+
+// Flat digital price. Every orbit costs the same; the orbit no longer sets the
+// price. Must match BASE_PRICE in index.html.
+const BASE_PRICE = 7.99;
+
+// PRINTED totals (digital + a posted copy), NOT add-ons:
+//   domestic      $19.99 — flat + rigid mailer + first-class US postage is
+//                           roughly $4, leaving a healthy margin.
+//   international $29.99 — First-Class Package International STARTS near
+//                           $19.40, so the US price would LOSE money on every
+//                           overseas order. Charging the domestic rate abroad
+//                           is the one mistake that costs real money here.
+// Must match PRINTED_PRICES in index.html.
+const PRINTED_PRICES = { none: 0, domestic: 19.99, international: 29.99 };
+const VALID_TIERS = Object.keys(PRINTED_PRICES);
+
 // These amounts are the source of truth. The client only sends the tier NAME;
 // the server decides the money. A tampered tier falls back to 'none'.
-const MAIL_PRICES = { none: 0, domestic: 5.00, international: 18.00 };
 
 // Stripe validates the address against this list, so only include what we will
 // genuinely post to.
@@ -46,8 +63,8 @@ const INTERNATIONAL_COUNTRIES = [
   'AE', 'IL', 'ZA', 'BR', 'MX', 'AR', 'CL', 'CO',
 ];
 
-// Tier prices. Must match the client's tiers in index.html.
-const PRICE_BY_REGIME = { LEO: 1.99, MEO: 5.99, GEO: 9.99 };
+// Kept only to label the object in logs/receipts; no longer used for pricing.
+const REGIME_LABEL = { LEO: 'low Earth orbit', MEO: 'medium Earth orbit', GEO: 'geostationary orbit' };
 
 /**
  * Derive the regime (and therefore the price) from the object's altitude.
@@ -92,28 +109,31 @@ export default async function handler(req, res) {
 
     // Allow-list the tier. Anything unrecognised becomes 'none', so a tampered
     // or stale value can never buy a physical copy at the wrong price.
-    const cleanTier = Object.prototype.hasOwnProperty.call(MAIL_PRICES, mailTier) ? mailTier : 'none';
+    const cleanTier = Object.prototype.hasOwnProperty.call(PRINTED_PRICES, mailTier) ? mailTier : 'none';
     const wantsMail = cleanTier !== 'none';
     const cleanEmoji = wantsEmojiAddon
       ? Array.from(String(emojiOverlay || '').replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/gu, '')).slice(0, 4).join('')
       : '';
 
+    // The client's only job is to name the tier. It sends the flat base price
+    // as a sanity signal; the real amount is derived below and never trusted
+    // from the request.
     const numericPrice = Number(price);
-    if (![1.99, 5.99, 9.99].includes(numericPrice)) {
+    if (Math.abs(numericPrice - BASE_PRICE) > 0.001) {
+      console.error('create-checkout: unexpected base price from client', { noradIdStr, sent: numericPrice });
       return res.status(400).json({ error: 'Invalid price' });
     }
 
-    // ---- Price must MATCH the object's orbit, not merely be a valid tier. ----
+    const tierTotal = cleanTier === 'none' ? BASE_PRICE : PRINTED_PRICES[cleanTier];
+    if (!Number.isFinite(tierTotal) || tierTotal <= 0) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
+
+    // Informational only — a bad stat can no longer block a sale, it just
+    // means the receipt won't name the orbit.
     const regime = regimeFromStat(cleanStat);
     if (!regime) {
-      // No trustworthy altitude -> we cannot verify the price. Refuse.
-      console.error('create-checkout: could not derive regime from stat', { noradIdStr, stat: cleanStat });
-      return res.status(400).json({ error: 'Could not verify this object. Please reload and try again.' });
-    }
-    const expectedBase = PRICE_BY_REGIME[regime];
-    if (Math.abs(numericPrice - expectedBase) > 0.001) {
-      console.error('create-checkout: price/regime mismatch', { noradIdStr, regime, sent: numericPrice, expected: expectedBase });
-      return res.status(400).json({ error: 'Price does not match this object.' });
+      console.warn('create-checkout: could not derive regime from stat (non-fatal now)', { noradIdStr, stat: cleanStat });
     }
 
     // 1. Already sold?
@@ -139,12 +159,14 @@ export default async function handler(req, res) {
     }
 
     // 3. Create the Stripe session
-    const priceInCents = Math.round(numericPrice * 100);
     const lineItems = [{
       price_data: {
         currency: 'usd',
-        product_data: { name: `Space Trash Claim: NORAD #${noradIdStr}` },
-        unit_amount: priceInCents,
+        product_data: {
+          name: `Space Trash Claim: NORAD #${noradIdStr}`,
+          description: regime ? `Digital certificate — ${REGIME_LABEL[regime]}` : 'Digital certificate',
+        },
+        unit_amount: Math.round(BASE_PRICE * 100),
       },
       quantity: 1,
     }];
@@ -160,19 +182,25 @@ export default async function handler(req, res) {
     }
     if (wantsMail) {
       const isIntl = cleanTier === 'international';
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: isIntl
-              ? 'Physical Certificate — printed & posted internationally'
-              : 'Physical Certificate — printed & mailed (US)',
-            description: 'A printed copy of this certificate, posted to your chosen address.',
+      // PRINTED_PRICES holds the BUNDLE TOTAL. Charge only the difference here,
+      // on top of the digital line above, so the receipt adds up to exactly the
+      // advertised $19.99 / $29.99 and the printed cost is still itemised.
+      const printPortion = Math.round((PRINTED_PRICES[cleanTier] - BASE_PRICE) * 100);
+      if (printPortion > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: isIntl
+                ? 'Printed certificate + international postage'
+                : 'Printed certificate + postage (USA)',
+              description: 'A printed copy of this certificate, posted to your chosen address.',
+            },
+            unit_amount: printPortion,
           },
-          unit_amount: Math.round(MAIL_PRICES[cleanTier] * 100),
-        },
-        quantity: 1,
-      });
+          quantity: 1,
+        });
+      }
     }
 
     // Build the site URL defensively — this must NEVER produce "https://undefined".
@@ -202,6 +230,8 @@ export default async function handler(req, res) {
         // Tier name, not a boolean — Stripe metadata is string-only and we need
         // to know which postage class to use when packing the envelope.
         mailTier: cleanTier,
+        purchaseType: wantsMail ? 'printed' : 'digital',
+        basePrice: String(BASE_PRICE),
       },
       // Stripe collects and validates the postal address itself, and the
       // address arrives on the webhook as session.shipping_details. We never

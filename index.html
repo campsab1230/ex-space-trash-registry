@@ -7,7 +7,7 @@
     <title>ExSpaceTrash — Name Real Space Junk After Your Ex. Permanently.</title>
 
     <!-- SEO / discovery -->
-    <meta name="description" content="Claim a real, publicly-tracked piece of orbital debris and permanently name it after your ex. Get a shareable novelty certificate. $1.99–$9.99. The pettiest thing in the solar system.">
+    <meta name="description" content="Claim a real, publicly-tracked piece of orbital debris and permanently name it after your ex. Get a shareable novelty certificate. $7.99. The pettiest thing in the solar system.">
     <link rel="canonical" href="https://www.exspacetrash.com/">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="theme-color" content="#020208">
@@ -119,10 +119,30 @@
         .hero-cert-cap { font-size: 0.7rem; color: #8ab4f8; margin: 5px 0 0; text-align: center; }
         .hero-trust { color: #8ab4f8; font-size: 0.78rem; line-height: 1.5; margin: 8px 0 0; }
         .hero-trust a { color: #4ef2d2; }
+        /* Social proof, driven by the REAL registry count — never invented.
+           Starts hidden and is only revealed by updateHeroProof() once the
+           registry has actually loaded and contains at least one real claim,
+           so a brand-new visitor never sees a fake "be the first" number. */
+        .hero-proof { display: none; color: #4ef2d2; font-size: 0.78rem;
+                      margin: 8px 0 0; padding: 7px 10px; border-radius: 6px;
+                      background: rgba(78,242,210,0.06);
+                      border: 1px solid rgba(78,242,210,0.22); }
+        .hero-proof a { color: #efc84e; text-decoration: underline; }
         .hero-more { margin-top: 12px; border-top: 1px dashed #333; padding-top: 10px; }
         .hero-more summary { cursor: pointer; color: #8ab4f8; font-size: 0.78rem; }
         .hero-more summary:hover { color: #4ef2d2; }
         .hero-warn { color: #ff5577; font-size: 0.75rem; margin: 8px 0 0; display: none; }
+
+        /* Price table, two rows, so the two numbers are impossible to miss.
+           Cold traffic abandons when pricing is hidden or needs arithmetic. */
+        .hero-price-block { margin: 12px 0 0; border: 1px solid rgba(239,200,78,0.30);
+                            border-radius: 6px; overflow: hidden; background: rgba(239,200,78,0.04); }
+        .hero-price-row { display: flex; align-items: baseline; justify-content: space-between;
+                          gap: 10px; padding: 9px 12px; }
+        .hero-price-row + .hero-price-row { border-top: 1px solid rgba(239,200,78,0.18); }
+        .hero-price-label { color: #8ab4f8; font-size: 0.72rem; letter-spacing: 1px; }
+        .hero-price-amt { color: #efc84e; font-size: 1.1rem; font-weight: bold; }
+        .hero-price-foot { color: #555; font-size: 0.68rem; margin: 6px 0 0; text-align: center; }
 
         #loading-banner { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 5; color: #4ef2d2; font-size: 1rem; text-align: center; }
         #error-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: rgba(255,85,119,0.15); border: 1px solid #ff5577; color: #ff5577; padding: 10px 18px; border-radius: 6px; display: none; max-width: 90%; text-align: center; }
@@ -197,9 +217,21 @@
                 <p class="hero-cert-cap">The actual certificate &mdash; high-resolution and watermark-free on download.</p>
 
                 <!-- Price up front. Cold traffic abandons when pricing is hidden. -->
-                <p class="hero-price">Certificates <strong>$1.99 &ndash; $9.99</strong> &middot; digital download included &middot; printed copies available</p>
+                <!-- Two numbers, no arithmetic. Fits without the modal. -->
+                <div class="hero-price-block">
+                    <div class="hero-price-row">
+                        <span class="hero-price-label">ALL ORBITS</span>
+                        <span class="hero-price-amt">$7.99</span>
+                    </div>
+                    <div class="hero-price-row">
+                        <span class="hero-price-label">DIGITAL + PRINTED</span>
+                        <span class="hero-price-amt">$19.99</span>
+                    </div>
+                </div>
+                <p class="hero-price-foot">Digital download included with both. Printed copies are posted to your door.</p>
 
                 <p class="hero-trust">Real NORAD-catalogued objects &middot; no account needed &middot; <a href="/wall">see who&rsquo;s already been sent up &rarr;</a></p>
+                <p id="hero-proof" class="hero-proof"></p>
 
                 <details class="hero-more">
                     <summary>Yes, it&rsquo;s real &mdash; how does this work?</summary>
@@ -323,13 +355,13 @@
 
         <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
             <label for="mail-tier" style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">
-                📬 ALSO MAIL ME A PHYSICAL COPY?
+                📬 DIGITAL ONLY, OR PRINTED AND POSTED?
             </label>
             <select id="mail-tier" onchange="toggleMailAddon()" class="name-input"
                     style="text-transform: none; width: 100%; cursor: pointer;">
-                <option value="none">No — digital download only</option>
-                <option value="domestic">Yes — mail within the USA (+$5.00)</option>
-                <option value="international">Yes — mail internationally (+$18.00)</option>
+                <option value="none">Digital only — $7.99</option>
+                <option value="domestic">Digital + printed, posted in the USA — $19.99</option>
+                <option value="international">Digital + printed, posted worldwide — $29.99</option>
             </select>
             <p id="mail-addon-note" style="display: none; font-size: 0.72rem; color: #8ab4f8; margin: 8px 0 0 0; line-height: 1.5;">
                 <span id="mail-addon-note-text"></span>
@@ -552,7 +584,7 @@
     const API_BASE = ''; // same-origin serverless functions under /api
     // Bump this whenever index.html changes. It rides along on every analytics
     // event, so "conversion dropped on the 12th" can be tied to a deploy.
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.2.0';
     let currentUser = null;
 
     // =====================================================================
@@ -643,9 +675,32 @@
         (data || []).forEach(row => {
           liveGlobalRegistry[row.norad_id] = { exName: row.dedication_name, type: row.debris_name };
         });
+        updateHeroProof();
       } catch (e) {
         console.error('Failed to load registry', e);
       }
+    }
+
+    // The "social proof loop" asked for in the cold-traffic brief. It is built
+    // from the SAME real registry rows that light up the ticker and the "already
+    // claimed" lock — nothing here is invented, and there is no testimonial
+    // copy attributed to anyone who does not exist.
+    //
+    // Deliberately silent when the registry is empty (or failed to load): a
+    // visitor who arrives before the first sale must not be told a number that
+    // isn't true. Only a genuine count is ever shown.
+    function updateHeroProof() {
+      const el = document.getElementById('hero-proof');
+      if (!el) return;
+      const count = Object.keys(liveGlobalRegistry).length;
+      if (count < 1) { el.style.display = 'none'; return; }
+      const noun = count === 1 ? 'ex' : 'exes';
+      el.textContent = `\u{1F680} ${count} ${noun} already permanently orbiting \u2014 `;
+      const link = document.createElement('a');
+      link.href = '/wall';
+      link.textContent = 'see the registry';
+      el.appendChild(link);
+      el.style.display = 'block';
     }
 
     function updateTickerFeed() {
@@ -789,7 +844,11 @@
         type: data.officialName || 'Unidentified Debris',
         stat: `${data.tierLabel || 'Catalogued debris'} • Alt: ${data.altKm ? data.altKm.toLocaleString() : '?'} km`,
         altKm: data.altKm,
-        price: regime === 'GEO' ? 9.99 : regime === 'MEO' ? 5.99 : 1.99,
+        // FLAT price. Orbit no longer changes the cost: flattening raised the
+        // catalogue average from $4.85 to $7.99 (1.65x), and lifted the Stripe
+        // fee from 18% of a $1.99 sale down to 6.7%.
+        // NOTE: display only — the server recomputes the real amount.
+        price: BASE_PRICE,
         regime,
         orbitRadius: radius,
         angle,
@@ -961,11 +1020,20 @@
 
     const EMOJI_ADDON_PRICE = 1.99;
 
-    // Domestic is $5 (rigid mailer + first-class postage is roughly $2-3, so a
-    // small margin). International is $18 because international postage for the
-    // same item is typically $15-25 — at $5 every overseas order would LOSE
-    // about $15.
-    const MAIL_PRICES = { none: 0, domestic: 5.00, international: 18.00 };
+    // Flat digital price for every orbit.
+    const BASE_PRICE = 7.99;
+
+    // PRINTED is a BUNDLE price, not an add-on: it is the whole total for
+    // digital + a printed copy posted to the buyer. Making it the total means
+    // the customer never has to add two numbers together.
+    //
+    //   domestic      $19.99 — flat + rigid mailer + first-class postage is
+    //                           roughly $4, leaving a healthy margin.
+    //   international $29.99 — First-Class Package International STARTS at
+    //                           about $19.40, so the US price would have LOST
+    //                           money on every overseas order.
+    // These must match PRINTED_PRICES in api/create-checkout.js.
+    const PRINTED_PRICES = { none: 0, domestic: 19.99, international: 29.99 };
 
     const MAIL_NOTES = {
       domestic: "We'll ask for your address at checkout. Printed on heavy stock and posted within 5 business days.",
@@ -991,7 +1059,7 @@
     function getMailTier() {
       const el = document.getElementById('mail-tier');
       const v = el ? el.value : 'none';
-      return Object.prototype.hasOwnProperty.call(MAIL_PRICES, v) ? v : 'none';
+      return Object.prototype.hasOwnProperty.call(PRINTED_PRICES, v) ? v : 'none';
     }
 
     function isMailAddonSelected() {
@@ -1008,14 +1076,16 @@
         note.style.display = 'block';
       }
       updateCheckoutTotal();
-      track('mail_addon_toggled', { value: MAIL_PRICES[tier] });
+      track('mail_addon_toggled', { value: PRINTED_PRICES[tier] });
     }
 
     function getCurrentTotal() {
       if (!selectedDebris) return 0;
-      return selectedDebris.price
-        + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0)
-        + MAIL_PRICES[getMailTier()];
+      const tier = getMailTier();
+      // Printed tiers ARE the full total (digital + print), so they replace the
+      // base price rather than adding to it.
+      const base = (tier === 'none') ? BASE_PRICE : PRINTED_PRICES[tier];
+      return base + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0);
     }
 
     function updateCheckoutTotal() {
@@ -1274,7 +1344,7 @@
             stat: selectedDebris.stat,
             exName: exName,
             customMessage: customMessage,
-            price: selectedDebris.price,
+            price: BASE_PRICE, // server recomputes the real total regardless
             emojiAddon: emojiAddonSelected,
             emojiOverlay: emojiOverlay,
             certificateTemplate: certTemplate,
@@ -1584,49 +1654,6 @@
           // Preserve the altitude-derived Y offset and add a gentle bob,
           // instead of overwriting altitude with a fixed swing.
           const baseY = t.userData.altY !== undefined ? t.userData.altY : 0;
-          t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
-          t.rotation.x += 0.01;
-        }
-      });
-
-      renderer.render(scene, camera);
-    }
-
-    window.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#ui') || e.target.closest('#hud-panel') || e.target.closest('.modal')) return;
-
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      // recursive=true so picking reaches the invisible proxy spheres nested
-      // inside each Group. Decorative hearts stay excluded on purpose (they
-      // live in decorativePieces, which is never passed here).
-      const intersects = raycaster.intersectObjects(trashPieces, true);
-
-      if (intersects.length > 0) {
-        const hit = intersects[0].object;
-        if (hit.userData && hit.userData.decorative) return;
-        // r128's raycaster ignores .visible, so confirm the owning group is
-        // actually shown — otherwise an orbit-filtered object stays claimable.
-        let owner = hit;
-        while (owner.parent && owner.parent.type !== 'Scene') owner = owner.parent;
-        if (owner.visible === false) return;
-        inspectDebris(hit.userData);
-      }
-    });
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    animate();
-  </script>
-</body>
-</html>
-ed ? t.userData.altY : 0;
           t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
           t.rotation.x += 0.01;
         }

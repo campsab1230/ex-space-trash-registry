@@ -1,7 +1,8 @@
 # ExSpaceTrash.com
 
-Pay $1.99–$9.99 to permanently name a real, catalogued piece of orbital debris
-after your ex, and download a novelty certificate to prove it.
+Pay **$7.99** to name a real, catalogued piece of orbital debris after your ex
+and download a novelty certificate — or **$19.99 / $29.99** to also have it
+printed and posted. Every orbit costs the same.
 
 ---
 
@@ -16,19 +17,31 @@ after your ex, and download a novelty certificate to prove it.
 
 ### Main features
 
-1. **3D debris field** — real objects fetched from CelesTrak, plotted by real
-   altitude (LEO / MEO / GEO), clickable on desktop and mobile.
-2. **Claim flow** — pick an object, type your ex's name, choose a certificate
+1. **Cold-traffic hero** — the landing panel leads with the hook
+   (*"YOUR EX WANTED SPACE."*), the price, a single **START MY CERTIFICATE**
+   button, and the certificate artwork itself. The button auto-picks an
+   unclaimed object and opens the personalisation form, so a visitor from a DM
+   never has to find the 3D field. Catalogue search and the "is this real?"
+   explainer are demoted into collapsed `<details>` so they cannot compete with
+   the one call to action.
+2. **3D debris field** — real objects fetched from CelesTrak, plotted by real
+   altitude (LEO / MEO / GEO), clickable on desktop and mobile. Still available
+   behind *"Prefer to browse the catalogue yourself?"*.
+3. **Claim flow** — pick an object, type your ex's name, choose a certificate
    design, pay via Stripe.
-3. **Certificates** — two artwork templates (Orbital / Parchment) with the
+4. **Certificates** — two artwork templates (Orbital / Parchment) with the
    buyer's text rendered on top, downloadable as high-resolution PNG.
-4. **Physical mail option** — +$5.00 prints and posts a paper copy (US only).
-   Stripe collects the address; it is never stored in our database.
-5. **Public registry wall** (`/wall`) — every claim, server-rendered and
-   crawlable.
-6. **Per-claim share pages** (`/trash/:noradId`) — real OG tags + generated
+5. **Physical mail option** — **$19.99** domestic / **$29.99** international is
+   the *whole order total* (digital + a printed copy posted to the buyer), not
+   an add-on. The server charges the digital line plus the printed difference,
+   so the receipt still itemises the print and adds up to exactly the
+   advertised number. Stripe collects the address; it is never stored in our
+   database.
+6. **Public registry wall** (`/wall`) — every claim, server-rendered and
+   crawlable. Doubles as social proof.
+7. **Per-claim share pages** (`/trash/:noradId`) — real OG tags + generated
    preview image, so shared links show a card.
-7. **First-party analytics** — cookie-free funnel tracking.
+8. **First-party analytics** — cookie-free funnel tracking.
 
 ---
 
@@ -82,8 +95,8 @@ it lives on the payment in the Stripe dashboard.
 
 ```
 index.html
-  └─ POST /api/create-checkout  → validates price against the object's orbit,
-     creates a Stripe session, writes a pending_claims lock
+  └─ POST /api/create-checkout  → validates the flat base price, derives the
+     real total server-side, creates a Stripe session, writes a pending_claims lock
         └─ Stripe Checkout (hosted)
              └─ POST /api/stripe-webhook  → verifies signature, confirms
                 payment_status === 'paid', writes the global_registry row
@@ -98,7 +111,7 @@ index.html
 | Endpoint | Method | Notes |
 | --- | --- | --- |
 | `/api/get-celestrak-debris` | GET | Debris list, Fisher-Yates shuffled |
-| `/api/create-checkout` | POST | Enforces price ↔ orbit match |
+| `/api/create-checkout` | POST | Flat price; server derives the total |
 | `/api/stripe-webhook` | POST | Stripe-only writer to the registry |
 | `/api/verify-session` | GET | Read-only, `?session_id=` |
 | `/api/og-image` | GET | 1200×630 PNG, `?id=<noradId>` |
@@ -148,14 +161,22 @@ SELECT column_name FROM information_schema.columns
 
 ## User Guide
 
-1. Open the site and wait for the debris field to load.
-2. Click a piece of debris (or search for one) to open the telemetry panel.
-3. Hit **CLAIM THIS TRASH**, type the ex's name, optionally add a message and an
-   emoji.
+**Fastest path (what most cold traffic should do):**
+
+1. Open the site.
+2. Tap **START MY CERTIFICATE** — an unclaimed object is chosen automatically.
+3. Type the ex's name, optionally add a message and an emoji.
 4. Pick a certificate design — the live preview updates as you type.
 5. Pay via Stripe. You land back on the site, which verifies the payment and
    shows the certificate.
 6. **Download** the PNG or **Share** the claim link.
+
+**Browse-it-yourself path:**
+
+1. Expand *"Prefer to browse the catalogue yourself?"* inside the hero.
+2. Filter by orbit or search by NORAD ID / name, or tap an object in the debris
+   field behind the panel.
+3. Hit **CLAIM THIS TRASH** and continue from step 3 above.
 
 To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wall).
 
@@ -180,6 +201,11 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 ## Known constraints
 
+- **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel for analytics to record
+  anything.** `/api/track` deliberately swallows all errors and always returns
+  `204`, so if that variable is missing every event is silently discarded and
+  `analytics_events` stays empty while the endpoint still looks healthy. Verify
+  with `SELECT count(*) FROM analytics_events;` after visiting the site.
 - **Supabase free tier pauses after ~7 days of inactivity.** Restore it from the
   dashboard, or the site silently loses its database.
 - `api/og-image.js` contains JSX and **cannot** be validated with `node --check`;
@@ -187,4 +213,4 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 - The anon key in `index.html` is intentionally public. Security relies on RLS,
   not on the key being secret. Never put a service-role key in the front end.
 
-**Last updated**: 2026-09-18
+**Last updated**: 2026-09-22
