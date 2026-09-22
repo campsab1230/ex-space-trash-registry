@@ -221,7 +221,7 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 ├── vercel.json                # rewrites: /trash/*, /wall, /sitemap.xml
 ├── package.json               # "type": "module" — all api/ files are ESM
 ├── api/                       # Vercel serverless functions
-├── assets/certs/              # certificate artwork (1024×765)
+├── assets/certs/              # certificate artwork + the baked hero sample (1024×765)
 ├── migrations/                # SQL to run in Supabase
 ├── public/                    # static passthrough
 └── {favicon, icon-*, og-image, manifest, robots, sitemap}.*  # brand + SEO assets

@@ -69,5 +69,23 @@ for (const tpl of ['a-orbital', 'b-parchment']) {
 check('name auto-fit still steps the font down for long names',
       /len <= 8\s*\?\s*base/.test(idx) && /0\.46/.test(idx));
 
+// --- 9. the HERO must show a finished certificate, never the word-free art ---
+// This shipped as a real production bug. Once the artwork was stripped of its
+// printed words, the hero <img> was still pointed at cert-b-parchment.png, so a
+// shopper's first impression of "the actual certificate" was a blank sheet.
+// The hero must use the baked sample render instead.
+const heroImg = idx.match(/class="hero-cert-wrap"[\s\S]{0,400}?<img\s+src="([^"]+)"/);
+check('the hero certificate image was found', !!heroImg);
+if (heroImg) {
+  const src = heroImg[1];
+  console.log(`hero certificate image: ${src}`);
+  check('hero does NOT point at the word-free template artwork',
+        !/cert-[ab]-(orbital|parchment)\.png/.test(src),
+        '<- that art has no words on it, so the hero renders as a blank sheet');
+  check('hero points at the baked sample certificate', /cert-sample-b\.png/.test(src));
+  check('the sample certificate asset exists',
+        fs.existsSync(new URL('../assets/certs/cert-sample-b.png', import.meta.url)));
+}
+
 console.log(fail ? `\n${fail} FAILED` : '\n✅ certificate layout is collision-proof');
 process.exit(fail ? 1 : 0);
