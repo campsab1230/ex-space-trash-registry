@@ -29,8 +29,14 @@ printed and posted. Every orbit costs the same.
    behind *"Prefer to browse the catalogue yourself?"*.
 3. **Claim flow** — pick an object, type your ex's name, choose a certificate
    design, pay via Stripe.
-4. **Certificates** — two artwork templates (Orbital / Parchment) with the
-   buyer's text rendered on top, downloadable as high-resolution PNG.
+4. **Certificates** — two artwork templates (Orbital / Parchment), downloadable
+   as high-resolution PNG. The artwork carries **no printed words at all**:
+   every word — the fixed title, kicker, sign-off and fine print *and* the
+   buyer's name, quote, emoji and meta line — is real HTML laid over the art.
+   The stage is a **flex column** of three rows (`cert-head` / `cert-slot` /
+   `cert-foot`), so the buyer's block and the printed copy are siblings that
+   structurally cannot overlap, however long the name is. See *Certificate
+   layout* below.
 5. **Physical mail option** — **$19.99** domestic / **$29.99** international is
    the *whole order total* (digital + a printed copy posted to the buyer), not
    an add-on. The server charges the digital line plus the printed difference,
@@ -243,11 +249,14 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 ## Tests
 
-Four zero-dependency guard checks live in `tests/`. Run them after any change
-to pricing, the checkout handoff, analytics, or the 3D scene:
+Five zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
+or individually after any change to pricing, the checkout handoff, analytics,
+the 3D scene, or the certificate layout:
 
 ```bash
+npm test                          # runs all five, in order
 node tests/check-contracts.mjs    # client/server key names match
+node tests/check-cert-layout.mjs  # certificate stays structurally collision-proof
 node tests/check-pricing.mjs      # prices agree across client, server, legal page
 node tests/check-cleanref.mjs     # analytics input sanitiser resists hostile input
 node tests/check-emoji-scene.mjs  # the $1.99 emoji add-on renders on the 3D object
@@ -278,4 +287,16 @@ They exist because the bugs that actually cost money here are **silent**:
   the badge is an offset child of that group and would swing away from the
   object (and behind it) if the group were rotated.
 
-All four exit non-zero on failure, so they can gate a deploy.
+- **`check-cert-layout.mjs`** guards the certificate rebuild described under
+  *Certificate layout* above. The old design baked the printed copy into the
+  artwork's pixels, so a long buyer name ran across printed words; the fix moved
+  every word into HTML in a flex column. Three properties keep that safe, and
+  losing any one silently restores the collision: the stage must stay
+  `display:flex; flex-direction:column` (siblings cannot overlap), the rows must
+  stay **out of** `position:absolute` (absolute + a long name is precisely how
+  the block used to reach the footer), and the stage must stay `border-box`
+  (otherwise its 76/66px padding inflates the 1024×765 box and html2canvas
+  clips the footer off the bottom — which is exactly what happened). It asserts
+  all three across both markup instances and both templates.
+
+All five exit non-zero on failure, so they can gate a deploy.

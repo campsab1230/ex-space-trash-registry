@@ -389,11 +389,19 @@
         <div style="margin: 15px 0;">
             <div class="cert-preview-viewport">
                 <div class="cert-stage cert-tpl-a" id="cert-preview-stage" data-cert-stage>
-                    <div class="cert-panel">
+                    <div class="cert-head">
+                        <div class="cert-title" data-cert-role="title">Official Space Trash Dedication Certificate</div>
+                        <div class="cert-kicker" data-cert-role="kicker">Awarded for Outstanding Performance in Being Someone Else’s Problem Now</div>
+                    </div>
+                    <div class="cert-slot">
                         <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
                         <div class="cert-name" data-cert-role="name">UNKNOWN</div>
                         <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
                         <div class="cert-meta" data-cert-role="meta">--</div>
+                    </div>
+                    <div class="cert-foot">
+                        <div class="cert-signoff" data-cert-role="signoff">Mission Control Heartbreak Division · Exspacetrash.com · EST 2024</div>
+                        <div class="cert-fine" data-cert-role="fine">100% NOVELTY — no actual astronauts were harmed and no orbit was altered in the making of this certificate. Exspacetrash.com accepts no liability for emotional damage, hurt feelings, or grudges held past 2 AM. Not valid for legal separation, restraining orders, or custody of the dog. The debris is real. This paperwork is not.</div>
                     </div>
                 </div>
             </div>
@@ -481,77 +489,104 @@
     <!-- and the paid export can never drift apart.                         -->
     <!-- ================================================================= -->
     <style>
-      .cert-stage { position: relative; width: 1024px; height: 765px;
+      /* ---- Certificate: pure-art background + HTML text ----
+         The artwork images now carry no baked-in words. Every word -- the fixed
+         copy AND the buyer's name, quote and meta -- is real HTML laid over the
+         art, so printed text can never collide with the buyer's again, and no
+         scrim is needed to hide anything. */
+      /* The stage is a flex COLUMN of three rows -- head (the fixed title),
+         slot (everything the buyer typed) and foot (the disclaimers). As
+         siblings in a flex column the rows cannot overlap one another, so
+         however long the buyer's name, quote or meta turn out to be, their
+         text can never land on top of the printed copy. The inset padding keeps
+         every row inside the artwork's own frame. */
+      .cert-stage { position: relative; box-sizing: border-box;
+                    width: 1024px; height: 765px;
                     background-size: 1024px 765px; background-repeat: no-repeat;
-                    font-family: 'Share Tech Mono', monospace; overflow: hidden; }
-      .cert-tpl-a { background-image: url('/assets/certs/cert-a-orbital.png'); }
-      .cert-tpl-b { background-image: url('/assets/certs/cert-b-parchment.png'); }
+                    font-family: 'Share Tech Mono', monospace; overflow: hidden;
+                    display: flex; flex-direction: column; align-items: center; }
+      .cert-tpl-a { background-image: url('/assets/certs/cert-a-orbital.png');
+                    padding: 76px 60px 66px; }
+      /* B's padding is tuned to the sheet's own furniture: the title clears the
+         gold flourish band (which ends ~y232), and the bottom inset lifts the
+         disclaimers up onto the blank ivory between the divider rule (y458) and
+         the wax seal (y~590), so nothing lands on the ribbon or the corner
+         medallions. */
+      .cert-tpl-b { background-image: url('/assets/certs/cert-b-parchment.png');
+                    padding: 330px 200px 185px; }
+      /* B's title is lifted out of the flex column and pinned up in the navy band
+         above the ivory sheet, so the sheet below keeps its own blank top. The
+         band is dark navy, so the title and kicker switch to light ink. */
+      .cert-tpl-b .cert-head { position: absolute; left: 238px; right: 238px;
+                    width: auto; top: 104px; }
+      /* On B the title now sits on the dark navy band, so it needs light ink --
+         the sheet's dark-brown ink would disappear against it. */
+      .cert-tpl-b .cert-head .cert-title { color: #e9c464;
+                    text-shadow: 0 1px 4px rgba(0,0,0,0.85); }
+      .cert-tpl-b .cert-head .cert-kicker { color: #cfe0ff;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
 
-      /* The panel is OPAQUE on purpose. It previously used alpha (0.80 / 0.93)
-         and the artwork's own printed paragraph showed straight through it,
-         colliding with the buyer's name. A solid fill is the only reliable fix
-         on artwork this busy.
-         Each panel is sized to sit over the artwork's paragraph block and stop
-         before its stamps / footer. */
-      /* NO BOX. A hard-edged rectangle reads as a sticker pasted over the art.
-         Instead: a soft radial scrim — opaque right where the text sits, faded
-         to fully transparent well before the edge, so there is no visible
-         border and the artwork shows through around the words. */
-      .cert-panel { position: absolute; box-sizing: border-box; display: flex;
-                    flex-direction: column; align-items: center;
+      .cert-head, .cert-slot, .cert-foot { width: 100%; box-sizing: border-box;
+                    display: flex; flex-direction: column; align-items: center;
                     text-align: center; }
+      /* The buyer's box grows to fill whatever space the head and foot leave
+         behind. Its content is pinned to the bottom of that space on A (so the
+         name reads as a signature over the dark lower sky) and to the top on B
+         (so it stays above the wax seal). Either way the flex column guarantees
+         it can never reach into the fixed copy. */
+      .cert-slot { flex: 1 1 auto; justify-content: center; }
+      .cert-tpl-b .cert-slot { justify-content: flex-start; }
 
-      /* Template A — content anchored to the TOP of the scrim, which lifts the
-         name up under the artwork's subtitle instead of dropping it across the
-         middle of the Earth. */
-      .cert-tpl-a .cert-panel {
-                    left: 96px; top: 196px; width: 832px; height: 340px;
-                    justify-content: flex-start; padding: 22px 34px 0;
-                    background: radial-gradient(ellipse 72% 56% at 50% 42%,
-                                rgba(2, 4, 12, 0.95) 0%,
-                                rgba(2, 4, 12, 0.88) 40%,
-                                rgba(2, 4, 12, 0.50) 70%,
-                                rgba(2, 4, 12, 0.00) 100%); }
+      /* Template A -- deep space with a centred Earth. Rows run title band /
+         buyer's box low over the dark space under the planet / disclaimers in
+         the bottom band.
+         Template B -- parchment sheet. Title sits under the top rule, the
+         buyer's box follows it down the blank body, and the disclaimers sit
+         below the lower rule, clear of the wax seal at the sheet's foot. */
 
-      /* Template B — content anchored to the BOTTOM, which lands the name on the
-         artwork's own "Recipient: ______" line rather than over its paragraph. */
-      .cert-tpl-b .cert-panel {
-                    left: 196px; top: 286px; width: 632px; height: 356px;
-                    justify-content: flex-end; padding: 0 30px 34px;
-                    background: radial-gradient(ellipse 74% 58% at 50% 58%,
-                                rgba(250, 245, 228, 0.97) 0%,
-                                rgba(250, 245, 228, 0.94) 44%,
-                                rgba(250, 245, 228, 0.58) 72%,
-                                rgba(250, 245, 228, 0.00) 100%); }
+      .cert-title { font-weight: 700; letter-spacing: 2px; line-height: 1.06;
+                    text-transform: uppercase; }
+      .cert-tpl-a .cert-title { color: #e9c464; font-size: 44px;
+                    text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0 22px rgba(0,0,0,0.8); }
+      .cert-tpl-b .cert-title { color: #1d2a4a; font-family: Georgia, 'Times New Roman', serif;
+                    font-size: 33px; }
 
-      /* The emoji now sits in normal flow inside the panel rather than floating
-         over the artwork, so it can never land on top of the title. */
-      .cert-emoji { line-height: 1; margin-bottom: 4px; }
-      .cert-tpl-a .cert-emoji { font-size: 42px; }
-      .cert-tpl-b .cert-emoji { font-size: 38px; }
+      .cert-kicker { font-style: italic; margin-top: 6px; }
+      .cert-tpl-a .cert-kicker { color: #f4aac6; font-size: 15px;
+                    text-shadow: 0 1px 3px #000, 0 0 12px rgba(0,0,0,0.98); }
+      .cert-tpl-b .cert-kicker { color: #7a2a1c; font-family: Georgia, serif; font-size: 13px; }
+
+      .cert-emoji { line-height: 1; margin-bottom: 2px; }
+      .cert-tpl-a .cert-emoji { font-size: 38px; }
+      .cert-tpl-b .cert-emoji { font-size: 30px; }
 
       .cert-name { font-weight: 700; line-height: 1.05; word-break: break-word;
                    text-transform: uppercase; max-width: 100%; }
-      /* With the box gone, contrast now rides on the text shadow. Template A's
-         artwork is bright and busy, so the gold needs a heavy dark halo to stay
-         readable over the scrim AND over anything showing through it. */
-      .cert-tpl-a .cert-name { color: #efc84e; font-size: 48px;
-                    text-shadow: 0 2px 4px rgba(0,0,0,0.98), 0 0 16px rgba(0,0,0,0.95),
-                                 0 0 40px rgba(0,0,0,0.85); }
-      .cert-tpl-b .cert-name { color: #3a2a10; font-family: Georgia, 'Times New Roman', serif; font-size: 42px;
-                    text-shadow: 0 1px 1px rgba(255,255,255,0.9); }
+      .cert-tpl-a .cert-name { color: #efc84e; font-size: 50px;
+                    text-shadow: 0 2px 5px rgba(0,0,0,0.98), 0 0 30px rgba(0,0,0,0.9); }
+      .cert-tpl-b .cert-name { color: #2f2010; font-family: Georgia, 'Times New Roman', serif;
+                    font-size: 44px; }
 
-      .cert-quote { font-style: italic; margin-top: 8px; word-break: break-word; max-width: 100%; }
-      .cert-tpl-a .cert-quote { color: #4ef2d2; font-size: 19px;
-                    text-shadow: 0 1px 3px rgba(0,0,0,0.98), 0 0 12px rgba(0,0,0,0.9); }
-      .cert-tpl-b .cert-quote { color: #8a2b1f; font-family: Georgia, 'Times New Roman', serif; font-size: 18px;
-                    text-shadow: 0 1px 1px rgba(255,255,255,0.85); }
+      .cert-quote { font-style: italic; margin-top: 6px; word-break: break-word; max-width: 100%; }
+      .cert-tpl-a .cert-quote { color: #6dffe4; font-size: 17px;
+                    text-shadow: 0 1px 3px #000, 0 0 10px rgba(0,0,0,0.98); }
+      .cert-tpl-b .cert-quote { color: #7a2a1c; font-family: Georgia, serif; font-size: 15px; }
 
-      .cert-meta { margin-top: 12px; font-size: 13px; letter-spacing: 1px; max-width: 100%; }
-      .cert-tpl-a .cert-meta { color: #8ab4f8;
-                    text-shadow: 0 1px 3px rgba(0,0,0,0.98), 0 0 10px rgba(0,0,0,0.9); }
-      .cert-tpl-b .cert-meta { color: #6b5a3a; font-family: Georgia, 'Times New Roman', serif;
-                    text-shadow: 0 1px 1px rgba(255,255,255,0.85); }
+      .cert-meta { margin-top: 8px; font-size: 12px; letter-spacing: 1px; max-width: 100%; }
+      .cert-tpl-a .cert-meta { color: #cfe0ff;
+                    text-shadow: 0 1px 3px #000, 0 0 10px rgba(0,0,0,0.98); }
+      .cert-tpl-b .cert-meta { color: #5d4a2e; font-family: Georgia, serif; }
+
+      .cert-signoff { font-style: italic; }
+      .cert-tpl-a .cert-signoff { color: #c8b98e; font-size: 11px;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.95); }
+      .cert-tpl-b .cert-signoff { color: #8a6a3a; font-family: Georgia, serif; font-size: 11px; }
+
+      .cert-fine { margin-top: 4px; font-size: 8px; line-height: 1.45; letter-spacing: 0.3px; }
+      /* A's fine print is held well inside the ornate frame's corner flourishes. */
+      .cert-tpl-a .cert-fine { color: #8e9bb5; max-width: 660px;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
+      .cert-tpl-b .cert-fine { color: #8a6a3a; }
 
       /* Live preview is the full-size stage scaled down. */
       .cert-preview-viewport { position: relative; width: 430px; height: 321px;
@@ -563,11 +598,19 @@
     <!-- Hidden, full-size export target (what html2canvas captures) -->
     <div id="export-cert" style="position: fixed; left: 0; top: 0; z-index: -1; opacity: 0; pointer-events: none;">
       <div class="cert-stage cert-tpl-a" data-cert-stage>
-        <div class="cert-panel">
-          <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
-          <div class="cert-name" data-cert-role="name">--</div>
-          <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
-          <div class="cert-meta" data-cert-role="meta">--</div>
+        <div class="cert-head">
+            <div class="cert-title" data-cert-role="title">Official Space Trash Dedication Certificate</div>
+            <div class="cert-kicker" data-cert-role="kicker">Awarded for Outstanding Performance in Being Someone Else’s Problem Now</div>
+        </div>
+        <div class="cert-slot">
+            <div class="cert-emoji" data-cert-role="emoji" style="display:none;">--</div>
+            <div class="cert-name" data-cert-role="name">UNKNOWN</div>
+            <div class="cert-quote" data-cert-role="quote" style="display:none;">--</div>
+            <div class="cert-meta" data-cert-role="meta">--</div>
+        </div>
+        <div class="cert-foot">
+            <div class="cert-signoff" data-cert-role="signoff">Mission Control Heartbreak Division · Exspacetrash.com · EST 2024</div>
+            <div class="cert-fine" data-cert-role="fine">100% NOVELTY — no actual astronauts were harmed and no orbit was altered in the making of this certificate. Exspacetrash.com accepts no liability for emotional damage, hurt feelings, or grudges held past 2 AM. Not valid for legal separation, restraining orders, or custody of the dog. The debris is real. This paperwork is not.</div>
         </div>
       </div>
     </div>
@@ -584,7 +627,7 @@
     const API_BASE = ''; // same-origin serverless functions under /api
     // Bump this whenever index.html changes. It rides along on every analytics
     // event, so "conversion dropped on the 12th" can be tied to a deploy.
-    const APP_VERSION = '1.3.3';
+    const APP_VERSION = '1.3.4';
     let currentUser = null;
 
     // =====================================================================
@@ -1312,7 +1355,7 @@
         // size overflowed the panel. Step the type down as it gets longer so
         // it always fits on one line.
         const len = name.textContent.length;
-        const base = tpl === 'b' ? 42 : 48;
+        const base = tpl === 'b' ? 44 : 50;
         const scaled = len <= 8  ? base
                      : len <= 12 ? base * 0.82
                      : len <= 16 ? base * 0.68
@@ -1862,6 +1905,22 @@
         // actually shown — otherwise an orbit-filtered object stays claimable.
         let owner = hit;
         while (owner.parent && owner.parent.type !== 'Scene') owner = owner.parent;
+        if (owner.visible === false) return;
+        inspectDebris(hit.userData);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
+ne') owner = owner.parent;
         if (owner.visible === false) return;
         inspectDebris(hit.userData);
       }

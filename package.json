@@ -4,6 +4,9 @@
   "type": "module",
   "private": true,
   "description": "Name a real piece of space junk after your ex.",
+  "scripts": {
+    "test": "node tests/check-contracts.mjs && node tests/check-cert-layout.mjs && node tests/check-emoji-scene.mjs && node tests/check-pricing.mjs && node tests/check-cleanref.mjs"
+  },
   "dependencies": {
     "stripe": "^16.0.0",
     "@supabase/supabase-js": "^2.48.0",
