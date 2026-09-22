@@ -41,7 +41,10 @@ printed and posted. Every orbit costs the same.
    crawlable. Doubles as social proof.
 7. **Per-claim share pages** (`/trash/:noradId`) — real OG tags + generated
    preview image, so shared links show a card.
-8. **First-party analytics** — cookie-free funnel tracking.
+8. **First-party analytics** — cookie-free funnel tracking, with campaign
+   attribution for outreach links (append `?ref=<channel>` or
+   `?utm_source=<channel>` to a DM link and events are tagged with it; the
+   table stores a short sanitised token, **never** the raw query string).
 
 ---
 
@@ -145,17 +148,35 @@ Run in order, once each:
 
 1. `migrations/001_hardening.sql`
 2. `migrations/002_analytics_and_fixes.sql`
+3. `migrations/003_campaign_ref.sql` — campaign attribution (the `ref` column)
 
 Migration 002 also renames `pending_claims.stripe_session_id` → `session_id` if
 the old name is present, which matches what `create-checkout.js` writes.
 
-**Verify after running 002:**
+Migration 003 is **optional but recommended**: it adds `analytics_events.ref`,
+which is what lets a tagged outreach link be told apart from organic traffic.
+Until it runs, `/api/track` still records every event — it detects the missing
+column, logs a warning, and retries the insert without `ref` rather than losing
+the event. So the funnel keeps working either way; you just lose attribution.
+
+**Verify after running all three:**
 
 ```sql
 SELECT column_name FROM information_schema.columns
  WHERE table_name IN ('global_registry','pending_claims','analytics_events')
  ORDER BY table_name, ordinal_position;
 ```
+
+**Then confirm analytics is actually recording** (it fails silently by design —
+`/api/track` returns `204` even when it stored nothing):
+
+```sql
+SELECT count(*) FROM analytics_events;
+```
+
+If that stays `0` while the site has visitors, `SUPABASE_SERVICE_ROLE_KEY` is
+missing in Vercel → Settings → Environment Variables. That is the single most
+common cause.
 
 ---
 

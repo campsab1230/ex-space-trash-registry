@@ -584,7 +584,7 @@
     const API_BASE = ''; // same-origin serverless functions under /api
     // Bump this whenever index.html changes. It rides along on every analytics
     // event, so "conversion dropped on the 12th" can be tied to a deploy.
-    const APP_VERSION = '1.2.0';
+    const APP_VERSION = '1.3.0';
     let currentUser = null;
 
     // =====================================================================
@@ -595,10 +595,44 @@
     //       page_view -> debris_loaded -> object_selected -> checkout_started
     //     No cookies, no third parties, no PII. Always fire-and-forget: a
     //     tracking failure must never break the page.
+    //
+    //     ATTRIBUTION: outreach links can carry a campaign tag so a DM click can
+    //     be told apart from organic traffic. Only the keys below are read, and
+    //     only a short sanitised token is ever sent — NEVER the raw query
+    //     string, because a `session_id` can appear in the URL and that is a
+    //     payment identifier we must not copy into an analytics table.
     // =====================================================================
+    const CAMPAIGN_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'ref'];
+    const REF_STORAGE_KEY = 'est_ref';
+
+    function readCampaignRef() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const pick = (k) => {
+          const v = params.get(k);
+          return v ? v.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 20) : '';
+        };
+        // Compact "source:medium:campaign:content" token, e.g.
+        //   ?utm_source=ig&utm_medium=dm  ->  "ig:dm"
+        //   ?ref=tiktok                   ->  "tiktok"
+        return [pick('utm_source') || pick('ref'), pick('utm_medium'),
+                pick('utm_campaign'), pick('utm_content')].filter(Boolean).join(':');
+      } catch (e) { return ''; }
+    }
+
+    function getCampaignRef() {
+      try {
+        const fromUrl = readCampaignRef();
+        // A tag on the current URL always wins, so a fresh DM link overrides a
+        // tag left over from an earlier visit in the same tab.
+        if (fromUrl) { sessionStorage.setItem(REF_STORAGE_KEY, fromUrl); return fromUrl; }
+        return sessionStorage.getItem(REF_STORAGE_KEY) || null;
+      } catch (e) { return null; }
+    }
+
     function track(event, data) {
       try {
-        const payload = Object.assign({ event, path: location.pathname, v: APP_VERSION }, data || {});
+        const payload = Object.assign({ event, path: location.pathname, ref: getCampaignRef(), v: APP_VERSION }, data || {});
         // keepalive lets the event survive an immediate navigation (e.g. the
         // checkout_started beacon firing right before we redirect to Stripe).
         fetch(`${API_BASE}/api/track`, {

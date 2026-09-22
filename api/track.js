@@ -35,6 +35,17 @@ const ALLOWED_EVENTS = new Set([
 
 const MAX_PATH_LEN = 200;
 
+// Campaign attribution. The client sends a short pre-sanitised token; we
+// sanitise AGAIN here, because the anon key is public and anything the client
+// can send, a stranger can send. Allow-list the character set rather than
+// escaping, so nothing exotic can reach the table.
+const MAX_REF_LEN = 60;
+function cleanRef(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim().toLowerCase().replace(/[^a-z0-9._:\/-]/g, '').slice(0, MAX_REF_LEN);
+  return s || null;
+}
+
 // Best-effort, in-process limiter. Vercel may run several instances and cold
 // starts reset it, so this is a speed bump, not a wall — it is here to stop a
 // single client hammering the endpoint, not to enforce a hard quota.
@@ -106,17 +117,41 @@ export default async function handler(req, res) {
     // Round to 2dp so a hostile client cannot stuff a giant float in.
     if (value !== null) value = Math.round(value * 100) / 100;
 
+    const ref = cleanRef(body.ref);
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { error } = await supabase.from('analytics_events').insert([{
+    // `ref` (campaign attribution) arrives with migration 003. PostgREST
+    // rejects the ENTIRE insert if one column is unknown — which would look
+    // exactly like "analytics is broken" while still returning 204, the worst
+    // possible failure for a silent endpoint. So: include `ref`, and if that
+    // specific column is missing, retry without it and keep recording events.
+    let { error } = await supabase.from('analytics_events').insert([{
       event,
       norad_id: noradId,
       path: cleanPath(body.path),
       value,
+      ref,
     }]);
+
+    if (error) {
+      const msg = (error && error.message) || '';
+      const refMissing = error.code === 'PGRST204' || error.code === '42703' ||
+        /could not find the 'ref' column/i.test(msg) ||
+        /column .*\bref\b.* does not exist/i.test(msg);
+      if (refMissing) {
+        console.warn('migrations/003 not applied — recording events without campaign attribution. Apply migrations/003_campaign_ref.sql.');
+        ({ error } = await supabase.from('analytics_events').insert([{
+          event,
+          norad_id: noradId,
+          path: cleanPath(body.path),
+          value,
+        }]));
+      }
+    }
 
     if (error) console.error('track insert failed:', error.message);
   } catch (err) {

@@ -17,13 +17,65 @@ row below says so.
 
 - **Accounts contacted** — DMs actually sent. Not "planned".
 - **Replies** — any reply. "lol no" counts.
-- **Site clicks** — they opened the link. Shortened links / UTM tags make this
-  measurable; without them you are guessing.
+- **Site clicks** — they opened the link. **Tag the link** (below) so this is
+  measurable per channel instead of guessed.
 - **Started checkout** — `checkout_started` in `analytics_events` (or count
   Stripe Checkout sessions opened).
 - **Purchased** — `checkout_completed` / paid sessions.
 
-Query the site's own numbers (Supabase → SQL Editor):
+---
+
+## Tag your DM links (do this — it's the whole point)
+
+The site now reads a campaign tag off the URL and stores it on every event.
+Append **one** of these to the link you paste into DMs:
+
+| Where you posted it | Link to paste |
+| --- | --- |
+| Instagram DM | `https://www.exspacetrash.com/?utm_source=ig&utm_medium=dm` |
+| Reddit comment | `https://www.exspacetrash.com/?utm_source=reddit&utm_medium=comment` |
+| TikTok bio / caption | `https://www.exspacetrash.com/?utm_source=tiktok&utm_medium=bio` |
+| X / Twitter | `https://www.exspacetrash.com/?utm_source=x&utm_medium=dm` |
+| Any other | `https://www.exspacetrash.com/?ref=<channel>` |
+
+Rules that matter:
+
+- **Use a different `utm_source` per channel.** Same tag everywhere = you learn
+  nothing. That's the only discipline required.
+- **`ref=` alone works too** and is the shortest option when a platform mangles
+  long URLs.
+- The tag is remembered for the visit (`sessionStorage`), so it still counts if
+  they browse before buying — not just on the very first page load.
+- **Never put `session_id` in a shared link.** That's a payment identifier from
+  your own Stripe redirect. The site strips query strings before storing paths
+  for exactly this reason.
+- Link shorteners still work — just make sure the tag survives the shortening
+  (add it to the destination URL, not the shortener's page).
+
+---
+
+## Analytics health check (run this first, once)
+
+Your site's analytics can fail **silently** — `/api/track` always returns
+`204`, even when it recorded nothing. So check the table directly before
+trusting any other number here. Supabase → SQL Editor:
+
+```sql
+-- Expect a growing count. If this stays 0 while you have visitors,
+-- SUPABASE_SERVICE_ROLE_KEY is missing in Vercel (Vercel → Settings →
+-- Environment Variables), which is the usual cause.
+SELECT count(*) FROM analytics_events;
+```
+
+```sql
+-- What actually landed, newest first
+SELECT event, ref, path, created_at
+  FROM analytics_events
+ ORDER BY created_at DESC
+ LIMIT 25;
+```
+
+Then the funnel itself:
 
 ```sql
 -- Funnel counts, last 30 days
@@ -33,6 +85,28 @@ SELECT event, count(*)
  GROUP BY event
  ORDER BY count(*) DESC;
 ```
+
+```sql
+-- WHICH CHANNEL ACTUALLY WORKS — the report the tags exist for.
+-- Requires migrations/003_campaign_ref.sql to have been run.
+SELECT
+  COALESCE(ref, '(no tag)')                            AS channel,
+  count(*) FILTER (WHERE event = 'page_view')          AS views,
+  count(*) FILTER (WHERE event = 'hero_cta_clicked')   AS cta_clicks,
+  count(*) FILTER (WHERE event = 'checkout_started')   AS checkouts,
+  count(*) FILTER (WHERE event = 'checkout_completed') AS purchases
+FROM analytics_events
+WHERE created_at > now() - interval '30 days'
+GROUP BY 1
+ORDER BY views DESC;
+```
+
+Read it like this: **views** says whether the DM earned a tap at all;
+**cta_clicks** says whether the page made sense when they arrived; **checkouts**
+says whether the price landed; **purchases** says whether the whole thing works.
+
+A channel with views but no purchases is a *pitch* problem. Zero views is an
+*outreach* problem. Those are different days' work.
 
 ```sql
 -- The real money: one row per completed purchase
