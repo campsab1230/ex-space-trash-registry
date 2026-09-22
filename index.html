@@ -584,7 +584,7 @@
     const API_BASE = ''; // same-origin serverless functions under /api
     // Bump this whenever index.html changes. It rides along on every analytics
     // event, so "conversion dropped on the 12th" can be tied to a deploy.
-    const APP_VERSION = '1.3.1';
+    const APP_VERSION = '1.3.2';
     let currentUser = null;
 
     // =====================================================================
@@ -703,13 +703,22 @@
 
     async function loadRegistry() {
       try {
-        const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name');
+        // `emoji_overlay` is the paid $1.99 add-on. It is selected here so the
+        // 3D scene can mark the object the buyer actually paid to decorate —
+        // before this, the emoji only ever reached the certificate artwork and
+        // /wall, so the add-on had no visible effect on the thing it describes.
+        const { data, error } = await _supabase.from('global_registry').select('norad_id, debris_name, dedication_name, emoji_overlay');
         if (error) throw error;
         liveGlobalRegistry = {};
         (data || []).forEach(row => {
-          liveGlobalRegistry[row.norad_id] = { exName: row.dedication_name, type: row.debris_name };
+          liveGlobalRegistry[row.norad_id] = {
+            exName: row.dedication_name,
+            type: row.debris_name,
+            emoji: row.emoji_overlay || ''
+          };
         });
         updateHeroProof();
+        applyRegistryEmoji();
       } catch (e) {
         console.error('Failed to load registry', e);
       }
@@ -835,6 +844,104 @@
       decorativePieces.push(heartGroup);
     }
 
+    // =====================================================================
+    // 4b. THE $1.99 EMOJI ADD-ON, RENDERED IN THE SCENE
+    // =====================================================================
+    // Before this existed, the emoji add-on only reached the certificate
+    // artwork and /wall — the buyer paid $1.99 and their debris looked
+    // identical to everyone else's. `loadRegistry()` now selects
+    // `emoji_overlay`, and the marker below is attached to the claimed object.
+    //
+    // There is no sprite/text system anywhere else in this scene, so the emoji
+    // is drawn to an offscreen canvas and used as a THREE.Sprite texture — a
+    // sprite always billsboards toward the camera, which is what keeps the
+    // glyph readable while the debris tumbles underneath it.
+    const EMOJI_CANVAS_PX = 256;
+
+    function makeEmojiSprite(emoji) {
+      const canvas = document.createElement('canvas');
+      canvas.width = EMOJI_CANVAS_PX;
+      canvas.height = EMOJI_CANVAS_PX;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      const r = EMOJI_CANVAS_PX / 2;
+
+      // A soft cyan disc behind the glyph. Without it the emoji floats on pure
+      // black and reads as a stray character; with it, it reads as a visible
+      // "you own this" stamp.
+      const glow = ctx.createRadialGradient(r, r, r * 0.12, r, r, r);
+      glow.addColorStop(0, 'rgba(0,240,255,0.50)');
+      glow.addColorStop(0.55, 'rgba(0,240,255,0.16)');
+      glow.addColorStop(1, 'rgba(0,240,255,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(r, r, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = `${Math.floor(EMOJI_CANVAS_PX * 0.62)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, r, r + EMOJI_CANVAS_PX * 0.03);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        // The quad is mostly transparent; without depthWrite:false it would
+        // carve a square hole in whatever sits behind it.
+        depthWrite: false
+      });
+
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(0.5, 0.5, 0.5);
+      // The picking loop raycasts trashPieces RECURSIVELY, and unlike a Mesh
+      // with visible:false a Sprite is genuinely hittable — it would swallow
+      // taps aimed at the object underneath. Make it unpickable so the
+      // invisible proxy sphere stays the only hit target.
+      sprite.raycast = function () {};
+
+      return sprite;
+    }
+
+    // Adds/removes the marker to match the registry. Safe to call any number of
+    // times: it no-ops when the object already shows the right emoji, so the
+    // canvas + texture are only rebuilt when the value actually changes.
+    function applyRegistryEmoji() {
+      trashPieces.forEach(group => {
+        const ud = group.userData;
+        if (!ud || !ud.noradId) return;
+
+        const row = liveGlobalRegistry[ud.noradId];
+        // Only ever render an emoji that was actually paid for — the column is
+        // written by the Stripe webhook, never by the client.
+        const emoji = (row && row.emoji) ? row.emoji : '';
+
+        if (ud._emojiShown === emoji) return;
+
+        if (ud._emojiSprite) {
+          group.remove(ud._emojiSprite);
+          if (ud._emojiSprite.material) {
+            if (ud._emojiSprite.material.map) ud._emojiSprite.material.map.dispose();
+            ud._emojiSprite.material.dispose();
+          }
+          ud._emojiSprite = null;
+        }
+        ud._emojiShown = emoji;
+
+        if (!emoji) return;
+        const sprite = makeEmojiSprite(emoji);
+        if (!sprite) return;
+        // Floats just above the debris so the two read as one object — a
+        // tumbling piece of space junk wearing a badge.
+        sprite.position.set(0, 0.44, 0);
+        group.add(sprite);
+        ud._emojiSprite = sprite;
+      });
+    }
+
     function createDebrisItem(data) {
       const geo = new THREE.BufferGeometry();
       const vertices = [];
@@ -874,6 +981,12 @@
       // NOTE: `price` here is DISPLAY ONLY. The server must recompute the real
       // amount from the NORAD id — never trust this value at checkout.
       proxy.userData = {
+        // The animation loop spins THIS, not the owning Group. Rotating the
+        // Group would orbit the emoji marker around the debris (it is a child
+        // at an offset), swinging the badge away from the object it belongs to
+        // and eventually tucking it behind. Spinning just the mesh tumbles the
+        // junk while the badge rides along steadily.
+        _spinTarget: mesh,
         noradId: String(data.noradId),
         type: data.officialName || 'Unidentified Debris',
         stat: `${data.tierLabel || 'Catalogued debris'} • Alt: ${data.altKm ? data.altKm.toLocaleString() : '?'} km`,
@@ -907,6 +1020,10 @@
         const debrisList = await res.json();
         if (!Array.isArray(debrisList) || debrisList.length === 0) throw new Error('Empty debris feed');
         debrisList.forEach(createDebrisItem);
+        // The debris fetch and loadRegistry() race each other (one starts at
+        // parse time, the other on DOMContentLoaded, and both are async). Whichever
+        // finishes second applies the badge, so the emoji shows up either way.
+        applyRegistryEmoji();
         populateDropdown();
         document.getElementById('loading-banner').style.display = 'none';
         // The hero button only needs the data, not the first rendered frame.
@@ -1647,6 +1764,22 @@
         const { noradId, type, stat, exName, customMessage, emojiOverlay, certificateTemplate, mailTier } = result.metadata;
         const template = certificateTemplate === 'b' ? 'b' : 'a';
         lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier };
+
+        // Paint the badge straight from the verified session instead of waiting
+        // for the webhook row to appear. The webhook and this redirect race, so
+        // without this the buyer pays $1.99 for an emoji and sees a bare object
+        // until they happen to reload. (Seeding the registry entry also flips
+        // the object to LOCKED, which is correct — it really has been claimed.)
+        if (noradId) {
+          const existing = liveGlobalRegistry[noradId] || {};
+          liveGlobalRegistry[noradId] = {
+            exName: exName || existing.exName,
+            type: type || existing.type,
+            emoji: emojiOverlay || existing.emoji || ''
+          };
+          applyRegistryEmoji();
+        }
+
         const mailNote = document.getElementById('success-mail-note');
         if (mailTier && mailTier !== 'none') {
           mailNote.textContent = mailTier === 'international'
@@ -1698,7 +1831,12 @@
           // instead of overwriting altitude with a fixed swing.
           const baseY = t.userData.altY !== undefined ? t.userData.altY : 0;
           t.position.y = baseY + Math.sin(t.userData.angle * 2) * 0.3;
-          t.rotation.x += 0.01;
+          // Spin the debris mesh, NOT the Group. The Group also carries the
+          // emoji badge (an offset child), so rotating the Group would swing
+          // the badge around the object and eventually hide it behind. Hearts
+          // have no _spinTarget and fall back to the old Group rotation.
+          if (t.userData._spinTarget) t.userData._spinTarget.rotation.x += 0.01;
+          else t.rotation.x += 0.01;
         }
       });
 

@@ -186,7 +186,10 @@ common cause.
 
 1. Open the site.
 2. Tap **START MY CERTIFICATE** — an unclaimed object is chosen automatically.
-3. Type the ex's name, optionally add a message and an emoji.
+3. Type the ex's name, optionally add a message and an emoji. The **emoji is a
+   $1.99 add-on** and it is painted onto the actual piece of debris in the 3D
+   scene — once claimed, that object floats through the field wearing the emoji,
+   so the badge is visible to everyone, not just on your certificate.
 4. Pick a certificate design — the live preview updates as you type.
 5. Pay via Stripe. You land back on the site, which verifies the payment and
    shows the certificate.
@@ -240,13 +243,14 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 ## Tests
 
-Three zero-dependency guard checks live in `tests/`. Run them after any change
-to pricing, the checkout handoff, or analytics:
+Four zero-dependency guard checks live in `tests/`. Run them after any change
+to pricing, the checkout handoff, analytics, or the 3D scene:
 
 ```bash
-node tests/check-contracts.mjs   # client/server key names match
-node tests/check-pricing.mjs     # prices agree across client, server, legal page
-node tests/check-cleanref.mjs    # analytics input sanitiser resists hostile input
+node tests/check-contracts.mjs    # client/server key names match
+node tests/check-pricing.mjs      # prices agree across client, server, legal page
+node tests/check-cleanref.mjs     # analytics input sanitiser resists hostile input
+node tests/check-emoji-scene.mjs  # the $1.99 emoji add-on renders on the 3D object
 ```
 
 They exist because the bugs that actually cost money here are **silent**:
@@ -264,5 +268,14 @@ They exist because the bugs that actually cost money here are **silent**:
 - **`check-cleanref.mjs`** asserts the analytics sanitiser's security
   properties (output charset is allow-listed, length capped, non-strings
   rejected) rather than hand-written expected strings.
+- **`check-emoji-scene.mjs`** guards the $1.99 add-on end to end. The add-on
+  used to be collected, stored, and drawn on the certificate — but never
+  rendered in the 3D scene, so buyers paid $1.99 and saw no difference. The
+  chain has several links (`loadRegistry` select → registry field → sprite
+  factory → applier → call sites), and breaking any **one** silently restores
+  the original bug with no error output. It also locks the badge-orbit fix: the
+  animation loop must spin the debris **mesh**, not the owning `Group`, because
+  the badge is an offset child of that group and would swing away from the
+  object (and behind it) if the group were rotated.
 
-All three exit non-zero on failure, so they can gate a deploy.
+All four exit non-zero on failure, so they can gate a deploy.
