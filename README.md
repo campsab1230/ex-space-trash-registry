@@ -123,7 +123,7 @@ index.html
 | `/api/create-checkout` | POST | Flat price; server derives the total |
 | `/api/stripe-webhook` | POST | Stripe-only writer to the registry |
 | `/api/verify-session` | GET | Read-only, `?session_id=` |
-| `/api/og-image` | GET | 1200×630 PNG, `?id=<noradId>` |
+| `/api/og-image` | GET | 1200×630 PNG, `?id=<noradId>` — generic card if unclaimed |
 | `/api/trash-page` | GET | Share page (routed from `/trash/:slug`) |
 | `/api/wall` | GET | Registry wall (routed from `/wall`) |
 | `/api/sitemap` | GET | Dynamic XML (routed from `/sitemap.xml`) |
@@ -321,4 +321,28 @@ They exist because the bugs that actually cost money here are **silent**:
   price block, trust/proof rows) while keeping the brand line, the hook and the
   CTA — a collapsed panel stays a usable header rather than an empty bar.
 
-All five exit non-zero on failure, so they can gate a deploy.
+- **`check-og-image.mjs`** guards the social-preview endpoint, which was
+  *never working*. It returned `FUNCTION_INVOCATION_FAILED` (500) for every
+  request — including one with no `id`, which skips the database entirely, and
+  that is what proved the fault was in the module rather than in Supabase or the
+  env vars. The cause: the render tree was written as **JSX inside a plain
+  `.js` file**, and Vercel runs `api/*.js` with no build step, so nothing
+  transpiled it and the file failed to parse before the handler body ran.
+  (`@vercel/og` is also edge-oriented while the file pinned `runtime: 'nodejs'`.)
+  The tree is now built with a tiny `el()` helper, which produces exactly the
+  React-element shape satori consumes — `{ type, props }` — so no JSX, no
+  transpile and no React dependency are needed. **Keep JSX out of `api/`.** The
+  guard runs `node --check` over every `api/*.js` (which rejects JSX outright),
+  and pins the data contract (`global_registry.dedication_name`, not the old
+  nonexistent `claims.custom_name`) plus the two-tier caching rule: a real
+  claim's card is immutable for a year, but a fallback card must expire in
+  minutes or a link shared mid-purchase pins a blank preview on that object.
+
+All six exit non-zero on failure, so they can gate a deploy.
+
+> **Why the og-image guard strips comments before asserting.** The file's own
+> header comment names the old `claims` / `custom_name` bug, so a naive grep
+> over the raw source reports a regression that does not exist — the first
+> version of this test failed on its own documentation. It now strips comments
+> (but keeps string contents, since the assertions look for quoted identifiers)
+> before checking what the *code* does.
