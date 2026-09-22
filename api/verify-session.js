@@ -33,6 +33,12 @@ export default async function handler(req, res) {
     return res.status(200).json({
       paid,
       registered: !!data,
+      // What the customer was actually charged, in cents. The success screen
+      // divides this by 100 to record real revenue on the checkout_completed
+      // event. This field was simply missing, so every purchase logged
+      // `value: undefined`: the funnel could count purchases but never total
+      // them, which is the number that says whether a price change worked.
+      amountTotal: session.amount_total != null ? session.amount_total : null,
       metadata: {
         noradId: session.metadata?.noradId,
         type: session.metadata?.type,

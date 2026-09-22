@@ -235,3 +235,34 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
   not on the key being secret. Never put a service-role key in the front end.
 
 **Last updated**: 2026-09-22
+
+---
+
+## Tests
+
+Three zero-dependency guard checks live in `tests/`. Run them after any change
+to pricing, the checkout handoff, or analytics:
+
+```bash
+node tests/check-contracts.mjs   # client/server key names match
+node tests/check-pricing.mjs     # prices agree across client, server, legal page
+node tests/check-cleanref.mjs    # analytics input sanitiser resists hostile input
+```
+
+They exist because the bugs that actually cost money here are **silent**:
+
+- **`check-contracts.mjs`** is the important one. `api/verify-session.js` and
+  `index.html` exchange JSON with no schema, so a renamed or misspelled key
+  fails at runtime as `undefined` with **no error anywhere**. That is exactly
+  how the certificate bug happened: the server sent `certificateTemplate`, the
+  client read `template`, the value was always `undefined`, and the renderer
+  quietly fell back to the default design. This test parses both files and
+  asserts every key the client reads is a key the server sends — so that
+  failure mode cannot recur unnoticed.
+- **`check-pricing.mjs`** prevents the advertised price drifting from the
+  charged price. A receipt that disagrees with the page is a refund risk.
+- **`check-cleanref.mjs`** asserts the analytics sanitiser's security
+  properties (output charset is allow-listed, length capped, non-strings
+  rejected) rather than hand-written expected strings.
+
+All three exit non-zero on failure, so they can gate a deploy.

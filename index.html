@@ -1636,7 +1636,16 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         await loadRegistry();
 
-        const { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier } = result.metadata;
+        // THE BLACK-BOX FIX. The server sends this key as `certificateTemplate`,
+        // but this line used to destructure `template` — a name that never
+        // existed, so it was always undefined. The renderer's fallback
+        // (`template || certTemplate`) then quietly used the default, and since
+        // the page has just RELOADED on return from Stripe, certTemplate had
+        // reset to 'a'. Result: a buyer who picked the parchment design was
+        // handed the orbital one. Read the real key, and normalise it so an
+        // unexpected value can never reach the renderer as a broken template.
+        const { noradId, type, stat, exName, customMessage, emojiOverlay, certificateTemplate, mailTier } = result.metadata;
+        const template = certificateTemplate === 'b' ? 'b' : 'a';
         lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier };
         const mailNote = document.getElementById('success-mail-note');
         if (mailTier && mailTier !== 'none') {
