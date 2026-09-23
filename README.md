@@ -342,3 +342,30 @@ All seven exit non-zero on failure, so they can gate a deploy.
 ## Character-led homepage and post-checkout art
 
 The root page uses the supplied crew illustration at `assets/characters/homepage-crew.jpg` and does not load the 3D scene. The **GET MY CERTIFICATE** button opens `certificate-app.html`, which retains the existing 3D registry and certificate/checkout behavior. Stripe success and cancel returns target that app page; after payment verification, the supplied mission-complete illustration appears in the success dialog from `assets/characters/post-checkout-mission-complete.jpg`.
+
+---
+
+## The sticker pack (free with every order)
+
+Every order — digital-only and printed alike — includes a downloadable **sticker pack**, offered in the post-purchase success modal. It is a *keepsake at the delivery moment*, deliberately not a lead magnet: no hero badge, no "FREE BONUS!" shouting, and no third prominent CTA competing with `DOWNLOAD CERTIFICATE` and `SHARE`, because the share loop is what actually drives this site.
+
+| Asset | Path |
+| --- | --- |
+| US Letter sheet | `assets/stickers/sticker-pack-letter.pdf` |
+| A4 sheet | `assets/stickers/sticker-pack-a4.pdf` |
+| Transparent PNGs | `assets/stickers/sticker-pack-png.zip` |
+
+**Two sheet sizes, not one.** The site sells an international $29.99 tier, so a Letter-only pack is wrong for a whole class of paying buyers. `check-sticker-pack.mjs` fails if A4 disappears.
+
+**Built from the supplied artwork.** The source images were 1024×1024 **JPEGs renamed `.png`** with the checkerboard baked into pixels — no alpha channel. `assets/stickers/` is generated from them by a structural cutout (greyscale-background detection keyed to the white die-cut outline, border-connected, hole-filled, edge-colour-extended so the feathered edge never blends into checkerboard grey). Print output is resampled to exactly **300 dpi at ~2.35 in** on the long edge, aspect-preserved to within 0.25% of source.
+
+**Deliberately ungated.** The PDFs sit at permanent, predictable URLs. Gating a freebie protects zero revenue while adding a DB lookup, a token path, and a support surface the moment a buyer wants to re-download. There is no payment-verification dependency, and `check-sticker-pack.mjs` asserts there never is.
+
+**Not shipped.** The pack is a digital bonus; the buyer prints it. `legal.html` §4b says so explicitly, so no one forms a delivery expectation — and it states that the pack does not increase the price and may be withdrawn as a free extra.
+
+**If it breaks, nothing tells you.** It is a free extra, so no one emails; and `/api/track` silently `204`s any event not on its allow-list. `sticker_pack_downloaded` is on that list, and the guard fails if it is removed — otherwise the funnel would undercount clicks with no error anywhere.
+
+**Coloring book (planned, not built).** A separate coloring book using the same characters is intended for a future *break-up package* — it is **not** part of this sticker pack and is not wired into the success modal. Do not fold it into the free pack without deciding the package structure first.
+
+**Last updated**: 2026-09-23
+

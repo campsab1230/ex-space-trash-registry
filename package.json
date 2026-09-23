@@ -5,7 +5,7 @@
   "private": true,
   "description": "Name a real piece of space junk after your ex.",
   "scripts": {
-    "test": "node tests/check-contracts.mjs && node tests/check-cert-layout.mjs && node tests/check-emoji-scene.mjs && node tests/check-pricing.mjs && node tests/check-cleanref.mjs && node tests/check-og-image.mjs && node tests/check-discovery.mjs && node tests/check-entry-flow.mjs"
+    "test": "node tests/check-contracts.mjs && node tests/check-cert-layout.mjs && node tests/check-emoji-scene.mjs && node tests/check-pricing.mjs && node tests/check-cleanref.mjs && node tests/check-og-image.mjs && node tests/check-discovery.mjs && node tests/check-entry-flow.mjs && node tests/check-sticker-pack.mjs"
   },
   "dependencies": {
     "stripe": "^16.0.0",

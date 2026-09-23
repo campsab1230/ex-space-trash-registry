@@ -29,6 +29,7 @@ const ALLOWED_EVENTS = new Set([
   'checkout_completed',
   'mail_addon_toggled',
   'certificate_downloaded',
+  'sticker_pack_downloaded',
   'share_opened',
   'wall_viewed',
 ]);

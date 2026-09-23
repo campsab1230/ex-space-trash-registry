@@ -534,6 +534,19 @@
         <button id="share-cert-btn" style="border-color: #00f0ff; color: #00f0ff;" onclick="shareCertificate()">
             🔗 SHARE
         </button>
+
+        <div id="sticker-pack-block" style="border-color: rgba(78,242,210,.28); border-style: dashed; border-width: 1px; border-radius: 10px; padding: 12px 14px; margin: 18px 0 12px;">
+            <p style="color:#8ab4f8; font-size:0.78rem; margin:0 0 10px; line-height:1.5;">
+                <strong style="color:#4ef2d2;">🧻 INCLUDED WITH EVERY ORDER</strong><br>
+                The crew, as a sticker pack — 5 die-cut stickers with cut guides. Print at home, or use the transparent PNGs in chats.
+            </p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                <button id="sticker-pdf-letter-btn" onclick="downloadStickerPack('letter')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF SHEET<br><span style="opacity:.75; font-size:0.7rem;">US Letter</span></button>
+                <button id="sticker-pdf-a4-btn" onclick="downloadStickerPack('a4')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF SHEET<br><span style="opacity:.75; font-size:0.7rem;">A4</span></button>
+                <button id="sticker-png-btn" onclick="downloadStickerPack('png')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">✨ TRANSPARENT PNGs<br><span style="opacity:.75; font-size:0.7rem;">ZIP · 5 files</span></button>
+            </div>
+        </div>
+
         <button class="close-btn" onclick="document.getElementById('success-modal').style.display='none'">RETURN TO RADAR</button>
     </div>
 
@@ -1729,6 +1742,46 @@
         console.error(err);
         btn.innerText = "DOWNLOAD FAILED — TRY AGAIN";
       }
+    }
+
+    // =====================================================================
+    // 8c. STICKER PACK — included with every order, all tiers, no gate.
+    //
+    //     Deliberately a plain static download rather than a token-protected
+    //     endpoint: this is a freebie, so gating it would protect zero revenue
+    //     while adding a DB lookup and a support surface if a buyer ever wants
+    //     to re-download. A permanent, predictable URL means they always can.
+    //
+    //     Two sheet sizes because the site sells internationally ($29.99 tier):
+    //     a US Letter-only sheet is wrong for an A4 buyer.
+    // =====================================================================
+    const STICKER_PACK_FILES = {
+      letter: '/assets/stickers/sticker-pack-letter.pdf',
+      a4:     '/assets/stickers/sticker-pack-a4.pdf',
+      png:    '/assets/stickers/sticker-pack-png.zip'
+    };
+
+    function downloadStickerPack(kind) {
+      const src = STICKER_PACK_FILES[kind];
+      if (!src) return;
+      const btn = document.getElementById(
+        kind === 'png' ? 'sticker-png-btn'
+        : kind === 'a4' ? 'sticker-pdf-a4-btn'
+        : 'sticker-pdf-letter-btn'
+      );
+      if (!btn) return;
+
+      const original = btn.innerHTML;
+      const link = document.createElement('a');
+      link.href = src;
+      link.download = src.split('/').pop();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      track('sticker_pack_downloaded', { kind });
+      btn.innerHTML = 'SAVED ✓';
+      setTimeout(() => { btn.innerHTML = original; }, 2500);
     }
 
     // =====================================================================
