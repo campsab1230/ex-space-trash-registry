@@ -15,7 +15,7 @@ printed and posted. Every orbit costs the same.
 
 ### Main features
 
-1. **Character-led homepage** — the home page introduces the supplied space crew illustration and a single **GET MY CERTIFICATE** call to action. The 3D purchase/registry app loads only after the visitor follows that action. The app retains the original auto-pick, certificate, and checkout flow.
+1. **Character-led homepage** — the home page introduces the supplied space crew illustration and a single **GET MY CERTIFICATE** call to action. The 3D purchase/registry app loads only after the visitor follows that action. The app retains the original auto-pick, certificate, and checkout flow. The homepage deliberately carries **no price** (see *Pricing is revealed in the funnel, not on the homepage*).
 2. **3D debris field** — real objects fetched from CelesTrak, plotted by real altitude (LEO / MEO / GEO), clickable on desktop and mobile. Loaded on the certificate app page after the homepage action.
 3. **Claim flow** — pick an object, type your ex's name, choose a certificate
    design, pay via Stripe.
@@ -268,7 +268,10 @@ They exist because the bugs that actually cost money here are **silent**:
   asserts every key the client reads is a key the server sends — so that
   failure mode cannot recur unnoticed.
 - **`check-pricing.mjs`** prevents the advertised price drifting from the
-  charged price. A receipt that disagrees with the page is a refund risk.
+  charged price. A receipt that disagrees with the page is a refund risk. It
+  also **pins the price-free homepage** and asserts the entry price is still
+  present on `certificate-app.html` — see *Pricing is revealed in the funnel,
+  not on the homepage*.
 - **`check-cleanref.mjs`** asserts the analytics sanitiser's security
   properties (output charset is allow-listed, length capped, non-strings
   rejected) rather than hand-written expected strings.
@@ -346,6 +349,48 @@ All nine exit non-zero on failure, so they can gate a deploy.
 ## Character-led homepage and post-checkout art
 
 The root page uses the supplied crew illustration at `assets/characters/homepage-crew.jpg` and does not load the 3D scene. The **GET MY CERTIFICATE** button opens `certificate-app.html`, which retains the existing 3D registry and certificate/checkout behavior. Stripe success and cancel returns target that app page; after payment verification, the supplied mission-complete illustration appears in the success dialog from `assets/characters/post-checkout-mission-complete.jpg`.
+
+---
+
+## Pricing is revealed in the funnel, not on the homepage
+
+The homepage is **top of funnel** and its job is to make a cold visitor want the
+thing before they are asked to price it. It therefore carries **no price in any
+form** — no visible figure in the markup, and no priced structured data either.
+
+Two separate surfaces had to go, and the second is the one that is easy to miss:
+
+- **Visible text.** The line under the CTA used to read `$7.99 digital
+  certificate · Printed and posted options: $19.99 domestic / $29.99
+  international`. It is now `.value-line`, which sells the *outcome* — a real
+  certificate for a real piece of debris, printed and posted if you want it on a
+  doormat — with no number in it.
+- **JSON-LD.** The `Product` block carried an `AggregateOffer` with
+  `lowPrice`/`highPrice` and three `Offer` entries. Nothing on the page showed
+  those, but **Google reads them and can print the figure in a search snippet**,
+  which is precisely the cold-traffic exposure this policy avoids. The `Product`
+  block stays (name, description, image, url, brand) so the page is still
+  eligible for rich treatment; only the offers are gone.
+
+**The price must still exist somewhere crawlable.** It now lives only on
+`certificate-app.html`, whose own JSON-LD carries the real `Product` +
+`AggregateOffer` at `7.99 / 19.99 / 29.99`. That file is where a visitor has
+engaged with the product and where the purchase decision actually happens —
+hiding the number *at the decision point* is what makes people abandon. The
+funnel keeps exactly one authoritative price, one page deeper.
+
+**Guard.** `check-pricing.mjs` fails the build if the homepage regains a price.
+It scans visible text with HTML comments stripped (`stripHtmlComments`), and
+checks the JSON-LD keys (`lowPrice|highPrice|price`) separately, because a
+structured price is invisible to a human and would otherwise slip through. It
+also asserts the entry price is *still present* on `certificate-app.html`, so
+the cheap "fix" of deleting pricing everywhere is caught too. `check-discovery.mjs`
+reads the priced LD block from the app page rather than the homepage, so the
+`check-pricing` agreement check between schema and checkout still has a subject.
+
+**Shop window vs. shelf.** The analogy that keeps this from being reverted by
+accident: the homepage is the shop window, `certificate-app.html` is the shelf.
+You do not sticker the glass; you sticker the product.
 
 ---
 
