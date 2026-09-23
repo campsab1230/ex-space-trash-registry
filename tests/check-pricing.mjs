@@ -5,7 +5,7 @@ const ok = (cond, msg) => { if (!cond) failures.push(msg); };
 
 // Resolve relative to this test file so it runs from any working directory.
 const file = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
-const idx = file('../index.html');
+const idx = file('../certificate-app.html');
 const co  = file('../api/create-checkout.js');
 const legal = file('../legal.html');
 
@@ -53,7 +53,7 @@ for (const tier of ['domestic', 'international']) {
 ok(Math.abs(serverTotal('none') - 7.99) < 1e-9, `digital total is ${serverTotal('none')}, expected 7.99`);
 
 // --- 3. no stale price strings anywhere user-facing ---
-// "User-facing" is the operative word: index.html legitimately DOCUMENTs the
+// "User-facing" is the operative word: certificate-app.html legitimately DOCUMENTs the
 // old "$1.99–$9.99" range in the comment explaining the JSON-LD fix, so testing
 // the raw source reports a stale price that no visitor can ever see. Strip HTML
 // comments first — a commented-out price is not an advertised price.

@@ -11,11 +11,11 @@
 //   3. the stage is border-box, otherwise its 76/66px padding inflates the
 //      1024x765 box and html2canvas clips the footer off the bottom.
 //
-// This test reads index.html and asserts all three, for both markup instances
+// This test reads certificate-app.html and asserts all three, for both markup instances
 // (the live preview and the hidden export target) and both templates.
 import fs from 'fs';
 
-const idx = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const idx = fs.readFileSync(new URL('../certificate-app.html', import.meta.url), 'utf8');
 
 let fail = 0;
 const check = (label, cond, extra = '') => {

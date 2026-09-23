@@ -25,7 +25,8 @@ const ok = (cond, msg) => { if (!cond) failures.push(msg); };
 
 const file = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const exists = (rel) => fs.existsSync(new URL(rel, import.meta.url));
-const idx = file('../index.html');
+const idx = file('../certificate-app.html');
+const home = file('../index.html');
 const vercel = JSON.parse(file('../vercel.json'));
 
 // --- 1. no static file may shadow a rewrite ---------------------------------
@@ -67,8 +68,8 @@ ok(/console\.error/.test(sm), 'sitemap swallows registry errors without logging 
 ok(/max-age=600/.test(sm), 'sitemap lost its cache header (the tell for shadowing)');
 
 // --- 3. structured data must exist and be valid JSON -----------------------
-const ldMatch = idx.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-ok(!!ldMatch, 'index.html has no application/ld+json structured data block');
+const ldMatch = home.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+ok(!!ldMatch, 'certificate-app.html has no application/ld+json structured data block');
 
 let ld = null;
 if (ldMatch) {
@@ -99,8 +100,8 @@ if (ld) {
   // --- 4. every advertised price must match the code that takes the money ---
   const idxBase = Number((idx.match(/const BASE_PRICE = ([\d.]+)/) || [])[1]);
   const idxEmoji = Number((idx.match(/const EMOJI_ADDON_PRICE = ([\d.]+)/) || [])[1]);
-  ok(Number.isFinite(idxBase), 'could not read BASE_PRICE from index.html');
-  ok(Number.isFinite(idxEmoji), 'could not read EMOJI_ADDON_PRICE from index.html');
+  ok(Number.isFinite(idxBase), 'could not read BASE_PRICE from certificate-app.html');
+  ok(Number.isFinite(idxEmoji), 'could not read EMOJI_ADDON_PRICE from certificate-app.html');
 
   const prices = list.map((o) => Number(o.price)).filter(Number.isFinite);
   ok(prices.length === list.length, 'a JSON-LD offer has a non-numeric price');
@@ -133,7 +134,7 @@ if (ld) {
 // the recommended route here, and it needs no code change). Testing the raw
 // source matches that commented example and reports a placeholder that is not
 // actually live. Only a real, uncommented tag is worth checking.
-const idxLive = idx.replace(/<!--[\s\S]*?-->/g, ' ');
+const idxLive = home.replace(/<!--[\s\S]*?-->/g, ' ');
 const gm = idxLive.match(/<meta name="google-site-verification" content="([^"]*)">/);
 if (gm) {
   ok(!/PASTE_YOUR_TOKEN_HERE/i.test(gm[1]),

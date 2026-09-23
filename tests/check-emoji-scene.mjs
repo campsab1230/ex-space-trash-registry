@@ -8,7 +8,7 @@
 // in any ONE of them silently restores the original bug with no error output.
 import fs from 'fs';
 
-const idx = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const idx = fs.readFileSync(new URL('../certificate-app.html', import.meta.url), 'utf8');
 
 let fail = 0;
 const check = (label, cond, extra = '') => {

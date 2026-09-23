@@ -11,22 +11,12 @@ printed and posted. Every orbit costs the same.
 - **Name**: ExSpaceTrash.com
 - **Goal**: A novelty e-commerce site that turns real NORAD-tracked space debris
   into a shareable, permanent gag gift.
-- **Stack**: Static `index.html` + Three.js r128 (CDN) → Vercel serverless
-  functions in `api/` → Supabase (Postgres + RLS) for the registry → Stripe
-  Checkout for payment.
+- **Stack**: Static `index.html` marketing homepage → `certificate-app.html` (existing Three.js r128 purchase/registry app) → Vercel serverless functions in `api/` → Supabase (Postgres + RLS) → Stripe Checkout.
 
 ### Main features
 
-1. **Cold-traffic hero** — the landing panel leads with the hook
-   (*"YOUR EX WANTED SPACE."*), the price, a single **START MY CERTIFICATE**
-   button, and the certificate artwork itself. The button auto-picks an
-   unclaimed object and opens the personalisation form, so a visitor from a DM
-   never has to find the 3D field. Catalogue search and the "is this real?"
-   explainer are demoted into collapsed `<details>` so they cannot compete with
-   the one call to action.
-2. **3D debris field** — real objects fetched from CelesTrak, plotted by real
-   altitude (LEO / MEO / GEO), clickable on desktop and mobile. Still available
-   behind *"Prefer to browse the catalogue yourself?"*.
+1. **Character-led homepage** — the home page introduces the supplied space crew illustration and a single **GET MY CERTIFICATE** call to action. The 3D purchase/registry app loads only after the visitor follows that action. The app retains the original auto-pick, certificate, and checkout flow.
+2. **3D debris field** — real objects fetched from CelesTrak, plotted by real altitude (LEO / MEO / GEO), clickable on desktop and mobile. Loaded on the certificate app page after the homepage action.
 3. **Claim flow** — pick an object, type your ex's name, choose a certificate
    design, pay via Stripe.
 4. **Certificates** — two artwork templates (Orbital / Parchment), downloadable
@@ -69,7 +59,7 @@ printed and posted. Every orbit costs the same.
 
 ## Data Architecture
 
-**Storage**: Supabase (Postgres), anon key public in `index.html`, RLS enforced.
+**Storage**: Supabase (Postgres), anon key public in `certificate-app.html`, RLS enforced.
 
 ### Tables
 
@@ -103,13 +93,13 @@ it lives on the payment in the Stripe dashboard.
 ### Data flow
 
 ```
-index.html
+certificate-app.html
   └─ POST /api/create-checkout  → validates the flat base price, derives the
      real total server-side, creates a Stripe session, writes a pending_claims lock
         └─ Stripe Checkout (hosted)
              └─ POST /api/stripe-webhook  → verifies signature, confirms
                 payment_status === 'paid', writes the global_registry row
-                   └─ index.html polls GET /api/verify-session → shows the
+                   └─ certificate-app.html polls GET /api/verify-session → shows the
                       certificate and enables download
 ```
 
@@ -216,7 +206,8 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 ```
 .
-├── index.html                 # entire front end (3D scene, claim flow, certificates)
+├── index.html                 # character-led homepage and certificate CTA
+├── certificate-app.html       # 3D scene, claim flow, certificates, post-checkout confirmation
 ├── legal.html                 # terms & novelty disclaimer
 ├── vercel.json                # rewrites: /trash/*, /wall, /sitemap.xml
 ├── package.json               # "type": "module" — all api/ files are ESM
@@ -240,7 +231,7 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
   dashboard, or the site silently loses its database.
 - `api/og-image.js` contains JSX and **cannot** be validated with `node --check`;
   Vercel's build transform handles it.
-- The anon key in `index.html` is intentionally public. Security relies on RLS,
+- The anon key in `certificate-app.html` is intentionally public. Security relies on RLS,
   not on the key being secret. Never put a service-role key in the front end.
 
 **Last updated**: 2026-09-22
@@ -265,7 +256,7 @@ node tests/check-emoji-scene.mjs  # the $1.99 emoji add-on renders on the 3D obj
 They exist because the bugs that actually cost money here are **silent**:
 
 - **`check-contracts.mjs`** is the important one. `api/verify-session.js` and
-  `index.html` exchange JSON with no schema, so a renamed or misspelled key
+  `certificate-app.html` exchanges JSON with no schema, so a renamed or misspelled key
   fails at runtime as `undefined` with **no error anywhere**. That is exactly
   how the certificate bug happened: the server sent `certificateTemplate`, the
   client read `template`, the value was always `undefined`, and the renderer
@@ -305,7 +296,7 @@ They exist because the bugs that actually cost money here are **silent**:
   certificate is HTML overlaid at capture time. Pointing the landing-page hero
   `<img>` at that raw art therefore shows shoppers a **blank sheet**, which is
   exactly the bug that shipped: the markup was correct in the dev repo but the
-  fix never reached `index.html` in the deploy repo, so production kept serving
+  fix never reached `certificate-app.html` in the deploy repo, so production kept serving
   the old `src`. The hero uses `cert-sample-b.png` instead — a one-off render of
   the *finished* template-B certificate (placeholder name, quote, object ID)
   baked to a single flat image. If the certificate design changes, re-render
@@ -346,3 +337,8 @@ All seven exit non-zero on failure, so they can gate a deploy.
 > version of this test failed on its own documentation. It now strips comments
 > (but keeps string contents, since the assertions look for quoted identifiers)
 > before checking what the *code* does.
+
+
+## Character-led homepage and post-checkout art
+
+The root page uses the supplied crew illustration at `assets/characters/homepage-crew.jpg` and does not load the 3D scene. The **GET MY CERTIFICATE** button opens `certificate-app.html`, which retains the existing 3D registry and certificate/checkout behavior. Stripe success and cancel returns target that app page; after payment verification, the supplied mission-complete illustration appears in the success dialog from `assets/characters/post-checkout-mission-complete.jpg`.

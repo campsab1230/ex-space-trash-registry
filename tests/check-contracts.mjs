@@ -4,7 +4,7 @@
 // error anywhere. Parse both files and assert the contracts line up.
 import fs from 'fs';
 
-const idx  = fs.readFileSync(new URL('../index.html', import.meta.url),'utf8');
+const idx  = fs.readFileSync(new URL('../certificate-app.html', import.meta.url),'utf8');
 const vses = fs.readFileSync(new URL('../api/verify-session.js', import.meta.url),'utf8');
 
 let fail = 0;

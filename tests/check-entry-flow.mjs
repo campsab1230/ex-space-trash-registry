@@ -1,0 +1,15 @@
+import fs from 'fs';
+const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+const home = read('../index.html');
+const app = read('../certificate-app.html');
+const checkout = read('../api/create-checkout.js');
+const ok = (cond, msg) => { if (!cond) { console.error('FAIL', msg); process.exitCode = 1; } else console.log('PASS', msg); };
+ok(home.includes('/assets/characters/homepage-crew.jpg'), 'homepage uses the supplied crew art');
+ok(/<img[^>]+homepage-crew\.jpg[^>]+alt="[^"]+"/.test(home), 'homepage art has descriptive alt text');
+ok(!home.includes('three.min.js') && !home.includes('three-container'), '3D scene is absent from the initial homepage');
+ok(home.includes('href="/certificate-app.html"'), 'homepage CTA opens the existing app');
+ok(app.includes('/assets/characters/post-checkout-mission-complete.jpg'), 'success view uses the supplied post-checkout art');
+ok(app.includes('id="success-modal"') && app.includes('success-mission-art'), 'post-checkout art appears in the verified success view');
+ok(checkout.includes('/certificate-app.html?session_id={CHECKOUT_SESSION_ID}'), 'Stripe success returns to verification flow');
+ok(checkout.includes('cancel_url: `${siteUrl}/certificate-app.html`'), 'Stripe cancellation returns to the checkout app');
+if (!process.exitCode) console.log('✅ entry, app, and post-checkout paths are connected');

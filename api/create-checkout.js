@@ -35,7 +35,7 @@ const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const EMOJI_ADDON_PRICE = 1.99;
 
 // Flat digital price. Every orbit costs the same; the orbit no longer sets the
-// price. Must match BASE_PRICE in index.html.
+// price. Must match BASE_PRICE in certificate-app.html.
 const BASE_PRICE = 7.99;
 
 // PRINTED totals (digital + a posted copy), NOT add-ons:
@@ -45,7 +45,7 @@ const BASE_PRICE = 7.99;
 //                           $19.40, so the US price would LOSE money on every
 //                           overseas order. Charging the domestic rate abroad
 //                           is the one mistake that costs real money here.
-// Must match PRINTED_PRICES in index.html.
+// Must match PRINTED_PRICES in certificate-app.html.
 const PRINTED_PRICES = { none: 0, domestic: 19.99, international: 29.99 };
 const VALID_TIERS = Object.keys(PRINTED_PRICES);
 
@@ -243,8 +243,8 @@ export default async function handler(req, res) {
             : DOMESTIC_COUNTRIES,
         },
       } : {}),
-      success_url: `${siteUrl}/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/`,
+      success_url: `${siteUrl}/certificate-app.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/certificate-app.html`,
       customer_email: (userEmail && String(userEmail).includes('@')) ? userEmail : undefined,
       expires_at: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
     });
