@@ -56,7 +56,26 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error('verify-session error:', err);
+    // Not every failure here is a server fault, and flattening them all into a
+    // blanket 500 was actively harmful: a stale, replayed, mistyped, or
+    // test/live-mismatched session id answered 500, which reads as "the site is
+    // broken" and pushed the buyer to "contact support" over a link that simply
+    // no longer resolves. It also buried real incidents in normal noise.
+    // So: separate "that id isn't a session" from "something is actually wrong".
+    if (err && err.type === 'StripeInvalidRequestError' && err.code === 'resource_missing') {
+      // The id is well-formed but unknown to this account/mode. Retrying can
+      // never succeed, so tell the client to stop rather than poll.
+      return res.status(404).json({ error: 'not_found' });
+    }
+    // Transient conditions - a rate limit, a Stripe-side error, a dropped
+    // connection. These CAN succeed on a retry, so say so instead of 500.
+    if (err && ['StripeRateLimitError', 'StripeAPIError', 'StripeConnectionError'].includes(err.type)) {
+      console.error('verify-session transient:', err.type, err.message);
+      return res.status(503).json({ error: 'temporarily_unavailable' });
+    }
+    // Genuine fault: bad/missing key, permissions, an unexpected shape, a bug.
+    // Keep the 500 - but log the type, because "err" alone told us nothing.
+    console.error('verify-session error:', err && (err.type || err.name), err && err.message);
     return res.status(500).json({ error: 'Verification failed' });
   }
 }

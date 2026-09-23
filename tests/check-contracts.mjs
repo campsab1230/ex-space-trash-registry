@@ -52,5 +52,23 @@ for (const k of new Set(clientTop)) {
 check('template is normalised before use (not left undefined)',
       /const template = certificateTemplate === 'b' \? 'b' : 'a';/.test(idx));
 
+// --- 5. verify-session must not flatten every failure into a blanket 500 ---
+// The status code IS part of the handoff, so this is a contracts concern. A
+// blanket 500 made an unresolvable session id look like a server outage, told
+// the buyer to "contact support" over a dead link, and buried real incidents in
+// noise. These four states must stay distinguishable.
+check('server maps an unknown/unresolvable session to 404 (not 500)',
+      /StripeInvalidRequestError[\s\S]{0,400}status\(404\)/.test(vses));
+check('server maps transient Stripe errors to 503 so the client can retry',
+      /StripeRateLimitError[\s\S]{0,400}status\(503\)/.test(vses));
+check('server still returns 500 for genuine faults (not over-caught)',
+      /status\(500\)/.test(vses));
+check('client distinguishes 404 from 503 before deciding what to say',
+      /res\.status === 404/.test(idx) && /res\.status === 503/.test(idx));
+check('client no longer blanket-throws on any non-200 response',
+      !/if \(!res\.ok\) throw new Error\('Verification request failed'\);/.test(idx));
+check('client reads the error body instead of guessing from status alone',
+      /const body = await res\.json\(\)/.test(idx));
+
 console.log(fail ? `\n${fail} FAILED` : '\n✅ client/server contracts align');
 process.exit(fail ? 1 : 0);

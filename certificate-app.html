@@ -1906,7 +1906,32 @@
       const maxAttempts = 10;
       try {
         const res = await fetch(`${API_BASE}/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
-        if (!res.ok) throw new Error('Verification request failed');
+
+        // The server separates "that session id doesn't resolve" (404) and
+        // "Stripe is having a moment" (503) from a genuine fault (500). Read the
+        // body BEFORE deciding what to say, because the old code threw on any
+        // non-200 and told the buyer to contact support — which was wrong for a
+        // stale link (nothing to support) and wrong for a transient blip
+        // (waiting fixes it). Neither deserved the scariest message we have.
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          if (res.status === 404 || body.error === 'not_found') {
+            document.getElementById('verifying-modal').style.display = 'none';
+            showError('We couldn\'t find that checkout session — this link may be old or already used. If you were charged, contact support.');
+            return;
+          }
+          if (res.status === 503 || body.error === 'temporarily_unavailable') {
+            if (attempt >= maxAttempts) {
+              document.getElementById('verifying-modal').style.display = 'none';
+              showError('We couldn\'t reach the payment service just now. If you were charged your claim is still safe — reload this page in a minute.');
+              return;
+            }
+            setTimeout(() => pollVerification(sessionId, attempt + 1), 1500);
+            return;
+          }
+          throw new Error('Verification request failed');
+        }
+
         const result = await res.json();
 
         if (!result.paid) {
