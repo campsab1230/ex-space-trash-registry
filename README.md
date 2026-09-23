@@ -240,17 +240,21 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 ## Tests
 
-Five zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
+Nine zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
 or individually after any change to pricing, the checkout handoff, analytics,
-the 3D scene, or the certificate layout:
+the 3D scene, the certificate layout, or the sticker pack:
 
 ```bash
-npm test                          # runs all five, in order
-node tests/check-contracts.mjs    # client/server key names match
-node tests/check-cert-layout.mjs  # certificate stays structurally collision-proof
-node tests/check-pricing.mjs      # prices agree across client, server, legal page
-node tests/check-cleanref.mjs     # analytics input sanitiser resists hostile input
-node tests/check-emoji-scene.mjs  # the $1.99 emoji add-on renders on the 3D object
+npm test                            # runs all nine, in order
+node tests/check-contracts.mjs      # client/server key names match
+node tests/check-cert-layout.mjs    # certificate stays structurally collision-proof
+node tests/check-pricing.mjs        # prices agree across client, server, legal page
+node tests/check-cleanref.mjs       # analytics input sanitiser resists hostile input
+node tests/check-emoji-scene.mjs    # the $1.99 emoji add-on renders on the 3D object
+node tests/check-og-image.mjs       # OG handler stays JSX-free + cache contract holds
+node tests/check-discovery.mjs      # sitemap unshadowed, JSON-LD prices match checkout
+node tests/check-entry-flow.mjs     # homepage → app → post-checkout is connected
+node tests/check-sticker-pack.mjs   # pack exists, is linked, is tracked, is disclosed
 ```
 
 They exist because the bugs that actually cost money here are **silent**:
@@ -329,7 +333,7 @@ They exist because the bugs that actually cost money here are **silent**:
   claim's card is immutable for a year, but a fallback card must expire in
   minutes or a link shared mid-purchase pins a blank preview on that object.
 
-All seven exit non-zero on failure, so they can gate a deploy.
+All nine exit non-zero on failure, so they can gate a deploy.
 
 > **Why the og-image guard strips comments before asserting.** The file's own
 > header comment names the old `claims` / `custom_name` bug, so a naive grep
