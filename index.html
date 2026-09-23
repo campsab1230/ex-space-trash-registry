@@ -12,6 +12,68 @@
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="theme-color" content="#020208">
 
+    <!-- Google Search Console — claiming the property is what lets you request
+         re-indexing, which is how a stale snippet (e.g. an old price) gets
+         flushed out of the search result. Two ways:
+           1) DNS (no code change, and safest here) — add the TXT record Google
+              hands you to the exspacetrash.com zone in Cloudflare. Cloudflare
+              is DNS-only for this site, so nothing about the deploy is touched.
+           2) HTML tag — uncomment the line below and paste your token. -->
+    <!-- <meta name="google-site-verification" content="PASTE_YOUR_TOKEN_HERE"> -->
+
+    <!-- Structured data: gives Google an AUTHORITATIVE price instead of letting
+         it infer one from prose, which is how a wrong "$1.99–$9.99" range once
+         ended up in the search snippet.
+         The $1.99 emoji add-on is deliberately NOT an offer: it cannot be
+         bought on its own, and emitting it as a price is exactly what produced
+         that misleading "from $1.99" figure. `lowPrice` is the real entry price.
+         Keep these numbers in sync with BASE_PRICE / PRINTED_PRICES —
+         tests/check-discovery.mjs fails the build if they drift. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "ExSpaceTrash Dedication Certificate",
+      "description": "A novelty certificate that permanently associates a real, publicly-tracked piece of orbital debris with a name you choose. Delivered as an instant digital download, or printed and posted to your door. An optional emoji add-on is available at checkout.",
+      "image": "https://www.exspacetrash.com/og-image.png",
+      "url": "https://www.exspacetrash.com/",
+      "brand": { "@type": "Brand", "name": "ExSpaceTrash" },
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "USD",
+        "lowPrice": "7.99",
+        "highPrice": "29.99",
+        "offerCount": "3",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Digital Dedication Certificate",
+            "price": "7.99",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock",
+            "url": "https://www.exspacetrash.com/"
+          },
+          {
+            "@type": "Offer",
+            "name": "Digital + Domestic Printed Certificate",
+            "price": "19.99",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock",
+            "url": "https://www.exspacetrash.com/"
+          },
+          {
+            "@type": "Offer",
+            "name": "Digital + International Printed Certificate",
+            "price": "29.99",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock",
+            "url": "https://www.exspacetrash.com/"
+          }
+        ]
+      }
+    }
+    </script>
+
     <!-- Open Graph (Facebook, iMessage, Discord, LinkedIn, Slack) -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="ExSpaceTrash.com">

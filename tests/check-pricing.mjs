@@ -53,6 +53,15 @@ for (const tier of ['domestic', 'international']) {
 ok(Math.abs(serverTotal('none') - 7.99) < 1e-9, `digital total is ${serverTotal('none')}, expected 7.99`);
 
 // --- 3. no stale price strings anywhere user-facing ---
+// "User-facing" is the operative word: index.html legitimately DOCUMENTs the
+// old "$1.99–$9.99" range in the comment explaining the JSON-LD fix, so testing
+// the raw source reports a stale price that no visitor can ever see. Strip HTML
+// comments first — a commented-out price is not an advertised price.
+// (Same trap as tests/check-og-image.mjs.)
+const stripHtmlComments = (s) => s.replace(/<!--[\s\S]*?-->/g, ' ');
+const idxVisible = stripHtmlComments(idx);
+const legalVisible = stripHtmlComments(legal);
+
 const stalePatterns = [
   [/\$1\.99\s*[–-]\s*\$9\.99/, 'old $1.99–$9.99 range still advertised'],
   [/Certificate[s]? <strong>\$/i, 'old hero price line still present'],
@@ -60,7 +69,7 @@ const stalePatterns = [
   [/\$18\.00/, 'old $18.00 mailing fee still present'],
 ];
 for (const [re, msg] of stalePatterns) {
-  ok(!re.test(idx) && !re.test(legal), `${msg} (index/legal)`);
+  ok(!re.test(idxVisible) && !re.test(legalVisible), `${msg} (index/legal)`);
 }
 
 // --- 4. the three numbers a cold visitor must see ---
