@@ -7,7 +7,7 @@
     <title>ExSpaceTrash — Name Real Space Junk After Your Ex. Permanently.</title>
 
     <!-- SEO / discovery -->
-    <meta name="description" content="Claim a real, publicly-tracked piece of orbital debris and permanently name it after your ex. Get a shareable novelty certificate. $7.99. The pettiest thing in the solar system.">
+    <meta name="description" content="Claim a real, publicly-tracked piece of orbital debris and permanently name it after your ex. Get a shareable novelty certificate. The pettiest thing in the solar system.">
     <link rel="canonical" href="https://www.exspacetrash.com/">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="theme-color" content="#020208">
@@ -197,7 +197,11 @@
         .hero-warn { color: #ff5577; font-size: 0.75rem; margin: 8px 0 0; display: none; }
 
         /* Price table, two rows, so the two numbers are impossible to miss.
-           Cold traffic abandons when pricing is hidden or needs arithmetic. */
+           This is the DECISION surface: the visitor has already left the
+           homepage and engaged with the product, so the price belongs here.
+           Hiding it at this point is what makes people abandon. The homepage
+           deliberately shows no price (see README, "Pricing is revealed in the
+           funnel, not on the homepage"). */
         .hero-price-block { margin: 12px 0 0; border: 1px solid rgba(239,200,78,0.30);
                             border-radius: 6px; overflow: hidden; background: rgba(239,200,78,0.04); }
         .hero-price-row { display: flex; align-items: baseline; justify-content: space-between;
@@ -294,7 +298,9 @@
                 </div>
                 <p class="hero-cert-cap">The actual certificate &mdash; high-resolution and watermark-free on download.</p>
 
-                <!-- Price up front. Cold traffic abandons when pricing is hidden. -->
+                <!-- Price up front — HERE, on the decision surface, not on the
+                     homepage. The visitor has already met the product; showing
+                     the number now is what stops them abandoning. -->
                 <!-- Two numbers, no arithmetic. Fits without the modal. -->
                 <div class="hero-price-block">
                     <div class="hero-price-row">
@@ -2062,22 +2068,6 @@
         // actually shown — otherwise an orbit-filtered object stays claimable.
         let owner = hit;
         while (owner.parent && owner.parent.type !== 'Scene') owner = owner.parent;
-        if (owner.visible === false) return;
-        inspectDebris(hit.userData);
-      }
-    });
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    animate();
-  </script>
-</body>
-</html>
-ne') owner = owner.parent;
         if (owner.visible === false) return;
         inspectDebris(hit.userData);
       }
