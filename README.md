@@ -338,7 +338,7 @@ They exist because the bugs that actually cost money here are **silent**:
   claim's card is immutable for a year, but a fallback card must expire in
   minutes or a link shared mid-purchase pins a blank preview on that object.
 
-All six exit non-zero on failure, so they can gate a deploy.
+All seven exit non-zero on failure, so they can gate a deploy.
 
 > **Why the og-image guard strips comments before asserting.** The file's own
 > header comment names the old `claims` / `custom_name` bug, so a naive grep
