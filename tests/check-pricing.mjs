@@ -8,6 +8,7 @@ const file = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
 const idx = file('../certificate-app.html');
 const co  = file('../api/create-checkout.js');
 const legal = file('../legal.html');
+const home = file('../index.html');
 
 // --- extract constants from both files ---
 const num = (src, re, label) => {
@@ -88,6 +89,28 @@ ok(!/MAIL_PRICES/.test(co), 'stale MAIL_PRICES reference reintroduced (Reference
 // --- 7. margin sanity: international must not lose money ---
 const intlTotal = coPrinted.international;
 ok(intlTotal >= 24, `international bundle $${intlTotal} is below ~$19.40 postage + margin`);
+
+// --- 8. the marketing homepage must show NO price, in any form ---
+// Deliberate funnel policy, not an oversight: the homepage is top-of-funnel
+// and leads with the product. A cold visitor meets what they are buying before
+// they meet the number; the price appears on certificate-app.html, once they
+// have engaged. This is trivially easy to undo by accident (a price is one
+// line of markup) and nothing else in the suite would notice, so pin it.
+const homeVisible = stripHtmlComments(home);
+ok(!/\$[0-9]/.test(homeVisible), 'homepage now shows a price in visible text');
+// Structured data counts as advertising the price even though no human sees it
+// on the page: Google reads the JSON-LD and can surface the figure in a search
+// snippet, which is exactly the cold-visitor exposure this policy avoids.
+ok(!/"(lowPrice|highPrice|price)"\s*:/.test(home),
+   'homepage JSON-LD advertises a price (Google can surface it in a snippet)');
+// Stripping the price must not have cost the page its job or its schema.
+ok(home.includes('/certificate-app.html'), 'homepage lost its route into the app');
+ok(/application\/ld\+json/.test(home), 'homepage lost its structured data block entirely');
+ok(home.includes('GET MY CERTIFICATE'), 'homepage lost its call to action');
+
+// The app page is where the number legitimately appears - and where it MUST,
+// since hiding it at the decision point is what makes people abandon.
+ok(/\$7\.99/.test(idx), 'app page lost its entry price');
 
 if (failures.length) {
   console.error('\n❌ FAILURES:'); failures.forEach(f => console.error('  -', f));

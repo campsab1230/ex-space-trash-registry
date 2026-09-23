@@ -68,7 +68,13 @@ ok(/console\.error/.test(sm), 'sitemap swallows registry errors without logging 
 ok(/max-age=600/.test(sm), 'sitemap lost its cache header (the tell for shadowing)');
 
 // --- 3. structured data must exist and be valid JSON -----------------------
-const ldMatch = home.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+// The priced Product/Offer block deliberately lives on certificate-app.html,
+// NOT on the marketing homepage. The homepage is the top of the funnel and
+// carries no price in any form — visible or structured — so a cold visitor
+// meets the product before the number. The priced schema must still exist
+// somewhere crawlable, or Google loses the authoritative price and goes back to
+// inferring one from prose (which is how the bad "$1.99–$9.99" snippet happened).
+const ldMatch = idx.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
 ok(!!ldMatch, 'certificate-app.html has no application/ld+json structured data block');
 
 let ld = null;
