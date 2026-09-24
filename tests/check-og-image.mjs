@@ -198,6 +198,61 @@ for (const [needle, why] of [
   ok(hits.length === 0, `${why} ("${needle}") is back in the card source: ${hits.join(', ')}`);
 }
 
+// --- 12. every og:image URL must resolve to a file we actually ship --------
+// Once the card filename is content-hashed, a stale reference is worse than the
+// bug this guard was written for: a mismatched hash does not serve an out-of-
+// date card, it serves NO card — the URL simply 404s and the link unfurls bare.
+// Nothing else in the suite would notice, so this is the check that makes the
+// hashing safe to use.
+const CARD_REFERRERS = ['index.html', 'certificate-app.html', 'api/wall.js'];
+
+const referenced = new Set();
+for (const rel of CARD_REFERRERS) {
+  const p = new URL(rel, root);
+  if (!fs.existsSync(p)) continue;
+  const body = fs.readFileSync(p, 'utf8');
+  // Both the plain and the hashed form, wherever they appear (og:image,
+  // twitter:image, JSON-LD "image"). The `v` must be in the pattern: the
+  // hashed name is og-image.v<hash>.png, and `v` is not a hex digit, so a
+  // pattern of `(?:\.[0-9a-f]+)?` silently fails to match our own output —
+  // which is exactly how the first version of this check reported every
+  // reference as missing.
+  for (const m of body.matchAll(/og-image(?:\.v[0-9a-f]+)?\.png/g)) {
+    referenced.add(m[0]);
+  }
+}
+
+ok(referenced.size > 0, 'no og-image reference found in any page — the social card is orphaned again');
+
+for (const name of referenced) {
+  const p = new URL(name, root);
+  ok(fs.existsSync(p),
+     `${name} is referenced by a page but does not exist — the link preview will unfurl bare (run: python3 tools/build-og-image.py)`);
+}
+
+// The references should agree with each other (one card, one name), and with
+// the build manifest the generator writes.
+const namesPath = new URL('tools/og-image-names.json', root);
+if (fs.existsSync(namesPath)) {
+  let manifest = {};
+  try {
+    manifest = JSON.parse(fs.readFileSync(namesPath, 'utf8'));
+  } catch (err) {
+    failures.push(`tools/og-image-names.json is not valid JSON: ${err.message}`);
+  }
+  if (manifest.card) {
+    ok(referenced.has(manifest.card),
+       `the build manifest says the card is ${manifest.card} but no page references it — pages and build are out of sync`);
+    ok(fs.existsSync(new URL(manifest.card, root)),
+       `the build manifest names ${manifest.card}, which does not exist on disk`);
+  }
+}
+
+// Every referenced name should be the same card. Two different concurrent
+// references means a partial rewrite left the pages disagreeing.
+ok(referenced.size <= 1,
+   `pages reference more than one social card (${[...referenced].join(', ')}) — a partial URL rewrite`);
+
 // --- report --------------------------------------------------------------
 if (failures.length) {
   console.error('❌ og-image guard failed:');

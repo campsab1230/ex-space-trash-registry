@@ -22,12 +22,28 @@ assets — the actual certificate artwork and the actual die-cut character
 stickers — which rsvg-convert cannot load from a referenced href.
 
 Usage:
-    python3 tools/build-og-image.py            # writes og-image.png
+    python3 tools/build-og-image.py            # writes og-image.png + the hashed card
     python3 tools/build-og-image.py --preview  # also writes a 600px proof
+
+CACHE BUSTING
+-------------
+Social platforms cache a link preview against the IMAGE URL, not the page, and
+X in particular holds one for about a week. Vercel itself never caches the file
+(`max-age=0, must-revalidate`), so the only way to make an updated card show up
+immediately is to change the URL. The card is therefore written twice on every
+build: as the stable `og-image.png`, and as `og-image.v<hash>.png` where the
+hash is of the PNG bytes. A hash that changes exactly when the picture changes
+busts the cache exactly when it needs busting — no one has to remember a
+version bump, which is the manual discipline that failed when the orphaned SVG
+was left behind.
 """
 
 import os
+import re
 import sys
+import json
+import shutil
+import hashlib
 import zipfile
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -43,6 +59,12 @@ def P(*parts):
 
 
 OUT = P('og-image.png')
+
+# The versioned twin, written alongside OUT, plus the manifest the pages read
+# their <meta og:image> URL from. Names are derived from content, never typed.
+NAMES_PATH = P('tools/og-image-names.json')
+HASH_PREFIX = 'og-image.v'
+HASH_SUFFIX = '.png'
 
 # --------------------------------------------------------------------------
 # canvas + brand palette
@@ -268,6 +290,35 @@ def build():
     return card
 
 
+def sync_references(hashed_name):
+    """Point every og:image / twitter:image / JSON-LD image at the hashed card.
+
+    The HTML is static, so a hashed filename is only useful if the pages
+    actually reference it. Doing that rewrite here — at build time — is what
+    makes the cache bust automatic: nobody has to remember to bump a version
+    in three files. That manual step is the exact discipline that failed and
+    let the orphaned SVG drift.
+    """
+    # Matches og-image.png and any og-image.v<hash>.png we have written.
+    # The `v` matters: without it the pattern cannot match our own hashed
+    # output, so a second build could never replace the first one's URL and
+    # would leave a stale reference pointing at a file that no longer exists.
+    pattern = re.compile(r'og-image(?:\.v[0-9a-f]+)?\.png')
+    targets = ['index.html', 'certificate-app.html', 'api/wall.js']
+    changed = []
+    for rel in targets:
+        path = P(rel)
+        if not os.path.isfile(path):
+            print(f'  ! {rel} missing — cannot sync social card URL', file=sys.stderr)
+            continue
+        src = open(path, encoding='utf-8').read()
+        new, n = pattern.subn(hashed_name, src)
+        if n and new != src:
+            open(path, 'w', encoding='utf-8').write(new)
+            changed.append(f'{rel} ({n})')
+    return changed
+
+
 def main():
     card = build()
 
@@ -279,8 +330,52 @@ def main():
     card.quantize(colors=256, method=Image.MEDIANCUT,
                   dither=Image.FLOYDSTEINBERG).save(OUT, 'PNG', optimize=True)
 
+    # --- content-hashed twin for cache busting ----------------------------
+    # Hash the bytes we just wrote, so the name changes if and only if the
+    # picture changes. Rendering is deterministic (fixed star seed, LANCZOS,
+    # fixed quantiser), so a no-op rebuild yields the same hash and the URL
+    # stays stable — we are not churning the URL on every deploy.
+    digest = hashlib.sha256(open(OUT, 'rb').read()).hexdigest()[:12]
+    hashed_name = f'{HASH_PREFIX}{digest}{HASH_SUFFIX}'
+    hashed_path = P(hashed_name)
+    shutil.copyfile(OUT, hashed_path)
+
+    # Prune superseded versions so the repo does not accumulate every card we
+    # have ever shipped. One previous version is kept deliberately: a social
+    # platform still holding the old URL must not start 404ing.
+    keep = {hashed_name}
+    import re as _re
+    pattern = _re.compile(rf'^{_re.escape(HASH_PREFIX)}[0-9a-f]+{_re.escape(HASH_SUFFIX)}$')
+    stale = [f for f in os.listdir(ROOT) if pattern.match(f) and f not in keep]
+    stale.sort()          # lexicographic is fine; these are only ever pruned
+    for name in stale[:-1]:   # keep the most recent stale one
+        os.remove(P(name))
+        print(f'pruned superseded card: {name}')
+
+    # Publish the filename so the pages can read their URL from one place.
+    names = {'card': hashed_name, 'hash': digest}
+    if os.path.exists(NAMES_PATH):
+        try:
+            prev = json.load(open(NAMES_PATH, encoding='utf-8'))
+            if prev.get('card') not in (None, hashed_name):
+                names['previous'] = prev['card']
+        except (ValueError, OSError):
+            pass
+    json.dump(names, open(NAMES_PATH, 'w', encoding='utf-8'),
+              indent=2, sort_keys=True)
+    open(NAMES_PATH, 'a', encoding='utf-8').write('\n')
+
     kb = os.path.getsize(OUT) / 1024
     print(f'wrote {OUT}  {card.size[0]}x{card.size[1]}  {kb:,.0f} KB')
+    print(f'wrote {hashed_path}')
+
+    changed = sync_references(hashed_name)
+    for c in changed:
+        print(f'  synced social card URL in {c}')
+    if not changed:
+        print('  pages already reference this card (no rewrite needed)')
+
+    print(f'wrote {NAMES_PATH}  (card={hashed_name})')
 
     if '--preview' in sys.argv:
         prev = '/tmp/og-preview.png'

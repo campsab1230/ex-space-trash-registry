@@ -422,7 +422,7 @@ Every order — digital-only and printed alike — includes a downloadable **sti
 
 `og-image.png` is the **static** card every social platform unfurls when someone
 links `exspacetrash.com` — X/Twitter, iMessage, Slack, Discord, LinkedIn,
-Facebook. It is referenced from six places: `index.html` (og:image,
+Facebook. It is referenced from seven places: `index.html` (og:image,
 twitter:image, JSON-LD `image`), `certificate-app.html` (og:image,
 twitter:image, JSON-LD `image`) and `api/wall.js`.
 
@@ -470,16 +470,64 @@ The artwork is a flat illustration palette, so a 256-colour quantisation is
 visually indistinguishable from the full-RGB render (checked at 2× on both the
 certificate and the dark gradient) and lands at ~220 KB.
 
+**Cache busting: the URL changes when the picture does.** Social platforms cache
+a link preview against the **image URL**, not the page, and X holds one for
+about a week. Vercel itself never caches the file (`public, max-age=0,
+must-revalidate`), so the *only* way to make an updated card appear immediately
+is to change the URL. That is why the card shipped as `og-image.png` looks
+undone for a week after every change.
+
+Every build therefore writes the card **twice**:
+
+| File | Role |
+| --- | --- |
+| `og-image.png` | stable name, for anything that expects it |
+| `og-image.v<hash>.png` | the URL the pages actually reference |
+| `tools/og-image-names.json` | manifest naming the current card (and the previous one) |
+
+`<hash>` is the first 12 hex of the PNG's own SHA-256, so the filename changes
+**if and only if the picture changes**. Rendering is deterministic — fixed star
+seed, LANCZOS resampling, a fixed quantiser — so a no-op rebuild produces the
+same hash and does **not** churn the URL. Verified: two consecutive runs emitted
+the same digest.
+
+The generator also **rewrites the references itself** (`sync_references`), across
+`index.html`, `certificate-app.html` and `api/wall.js`. This is the part that
+matters: the pages are static HTML, so a hashed filename is useless unless
+something updates the markup — and "someone remembers to bump the version" is
+precisely the manual discipline that failed when the orphaned SVG was left
+behind. It now happens as a side effect of building the card.
+
+One previous version is **kept on purpose**. A platform still holding the old
+URL must not start 404ing; older ones are pruned.
+
+**A note on the pattern.** Both the generator's rewrite regex and the guard's
+detector use `og-image(?:\.v[0-9a-f]+)?\.png`. The `v` is load-bearing: `v` is
+not a hex digit, so a pattern of `(?:\.[0-9a-f]+)?` silently fails to match our
+own output. That bug shipped in the first version of both files — the guard
+reported every reference as missing, and worse, the generator could never
+replace a hashed URL on a subsequent build, which would leave a stale reference
+pointing at a deleted file.
+
 **Guard.** `check-og-image.mjs` now covers the static card as well as the
 handler: the copy file carries no currency symbol and no price-shaped number,
 the rendered PNG is a real 1200×630 PNG in a sane size range, the generator
 exists and reads the copy file, the dead SVG stays deleted, and the retired
-strings cannot reappear in the card's sources. Its scope is deliberately narrow
-— it inspects only the files that *produce the card*. `certificate-app.html`
-legitimately prices things (the `$1.99` emoji add-on, the tier select) and
-legitimately shows `DEBRIS ENGAGED` as a live status heading; scanning it here
-produced three false positives on the first run, which is why
-`check-pricing.mjs` owns the homepage/decision-surface policy instead.
+strings cannot reappear in the card's sources.
+
+It also asserts that **every referenced `og:image` URL resolves to a file we
+actually ship**, and that the pages and the build manifest agree on one name.
+Once the filename is content-hashed, a stale reference is worse than the
+original bug: a mismatched hash does not serve an out-of-date card, it serves
+*no card* — the URL 404s and the link unfurls bare. Nothing else in the suite
+would notice.
+
+The scope is deliberately narrow — it inspects only the files that *produce the
+card*. `certificate-app.html` legitimately prices things (the `$1.99` emoji
+add-on, the tier select) and legitimately shows `DEBRIS ENGAGED` as a live
+status heading; scanning it here produced three false positives on the first
+run, which is why `check-pricing.mjs` owns the homepage/decision-surface policy
+instead.
 
 **Last updated**: 2026-09-24
 
