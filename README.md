@@ -416,5 +416,70 @@ Every order — digital-only and printed alike — includes a downloadable **sti
 
 **Coloring book (planned, not built).** A separate coloring book using the same characters is intended for a future *break-up package* — it is **not** part of this sticker pack and is not wired into the success modal. Do not fold it into the free pack without deciding the package structure first.
 
-**Last updated**: 2026-09-23
+---
+
+## The social card (`og-image.png`)
+
+`og-image.png` is the **static** card every social platform unfurls when someone
+links `exspacetrash.com` — X/Twitter, iMessage, Slack, Discord, LinkedIn,
+Facebook. It is referenced from six places: `index.html` (og:image,
+twitter:image, JSON-LD `image`), `certificate-app.html` (og:image,
+twitter:image, JSON-LD `image`) and `api/wall.js`.
+
+It is **not** the same artifact as `api/og-image.js`. That handler renders a
+*dynamic* per-claim card for `/trash/:slug` links and carries no price. The
+plain-domain card is the static file, and for a long time nothing checked it.
+
+**The bug this section exists for.** The card was produced from
+`og-image.svg` — which **nothing rendered and nothing referenced**. No npm
+script, no build step. That file hard-coded
+`Permanently. For $1.99.` in it, so when the price moved, the card did not:
+a stale price sat in every timeline preview for weeks. The SVG was never
+regenerated after the price change, and no guard looked at it, because
+`check-og-image.mjs` only watched the dynamic handler. It was also still
+rendering the *retired* registry aesthetic (dark/cyan monospace,
+`DEBRIS ENGAGED`, a `SEASHELL` placeholder) rather than the current brand.
+
+**Now: one source, reproducible from the repo.** `og-image.svg` is **deleted**.
+The card is built by `tools/build-og-image.py`, which composes real assets —
+the current certificate artwork (`assets/certs/cert-sample-b.png`, cropped to
+its light frame) centred, with the die-cut character stickers from
+`assets/stickers/sticker-pack-png.zip` around it, overlapping its edges.
+
+```bash
+python3 tools/build-og-image.py            # writes og-image.png
+python3 tools/build-og-image.py --preview  # also writes a 600px proof
+```
+
+Rendered with Pillow rather than SVG because the card is built from **real
+raster assets**, and `rsvg-convert` cannot load a referenced `href` — a test
+render came back as flat background. A base64 pool would work but would bloat
+the source with binary. The generator reads the sticker PNGs straight out of
+the committed zip, so the card is reproducible from the repository alone with
+no untracked scratch files.
+
+**Cold-traffic surface: no price.** The card follows the same rule as the
+homepage — see *Pricing is revealed in the funnel, not on the homepage*. A
+visitor meeting the product for the first time in a timeline has not been sold
+yet, so the card is a shop window, not a shelf. The copy lives in
+`tools/og-image-copy.json`, which both the generator and the guard read, so
+they cannot drift apart.
+
+**Size.** A straight RGB save is ~635 KB; crawlers fetch this on every unfurl.
+The artwork is a flat illustration palette, so a 256-colour quantisation is
+visually indistinguishable from the full-RGB render (checked at 2× on both the
+certificate and the dark gradient) and lands at ~220 KB.
+
+**Guard.** `check-og-image.mjs` now covers the static card as well as the
+handler: the copy file carries no currency symbol and no price-shaped number,
+the rendered PNG is a real 1200×630 PNG in a sane size range, the generator
+exists and reads the copy file, the dead SVG stays deleted, and the retired
+strings cannot reappear in the card's sources. Its scope is deliberately narrow
+— it inspects only the files that *produce the card*. `certificate-app.html`
+legitimately prices things (the `$1.99` emoji add-on, the tier select) and
+legitimately shows `DEBRIS ENGAGED` as a live status heading; scanning it here
+produced three false positives on the first run, which is why
+`check-pricing.mjs` owns the homepage/decision-surface policy instead.
+
+**Last updated**: 2026-09-24
 

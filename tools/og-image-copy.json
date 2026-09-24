@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy for the static social card (og-image.png). Read by tools/build-og-image.py AND tests/check-og-image.mjs — one source of truth, so the guard checks the exact strings that get rendered rather than grepping for them.",
+  "brand": "EXSPACETRASH.COM",
+  "headline": "NAME REAL SPACE JUNK AFTER YOUR EX.",
+  "subline": "Permanently."
+}
