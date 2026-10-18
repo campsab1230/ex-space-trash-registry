@@ -179,6 +179,30 @@ ok(exists('../lib/gift-email.js'), 'lib/gift-email.js is missing');
 ok(!exists('../api/gift-email.js'),
    'gift-email.js was moved into api/ — that makes the email template a public endpoint');
 
+// lib/ is NOT a route, but it IS publicly readable: this project serves the repo
+// root statically, and /lib/gift-email.js was verified live returning 200 with
+// the real source. That is harmless while the file holds only `process.env`
+// NAMES — but a literal credential pasted in "just to test" would be published
+// to the open internet. Assert no secret VALUES, while allowing env var names.
+const giftSrc = file('../lib/gift-email.js');
+const SECRET_VALUE_PATTERNS = [
+  [/re_[A-Za-z0-9]{16,}/, 'a literal Resend API key'],
+  [/sk_live_[A-Za-z0-9]{10,}/, 'a literal Stripe live secret key'],
+  [/sk_test_[A-Za-z0-9]{10,}/, 'a literal Stripe test secret key'],
+  [/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/, 'a literal JWT (e.g. a Supabase service-role key)'],
+  [/whsec_[A-Za-z0-9]{10,}/, 'a literal Stripe webhook signing secret'],
+];
+for (const [re, label] of SECRET_VALUE_PATTERNS) {
+  ok(!re.test(giftSrc),
+     `lib/gift-email.js contains ${label} — lib/ is served publicly, so that credential is now on the open internet`);
+}
+// Guard the guard: the file must still reference the env var it needs, or the
+// secret check above would pass simply because the file stopped reading config.
+ok(/process\.env\.RESEND_API_KEY/.test(giftSrc),
+   'lib/gift-email.js no longer reads RESEND_API_KEY from the environment');
+ok(/process\.env\.GIFT_EMAIL_FROM/.test(giftSrc),
+   'lib/gift-email.js no longer reads GIFT_EMAIL_FROM from the environment');
+
 // ===========================================================================
 // 7. THE SEND IS VISIBLE AFTERWARDS
 //

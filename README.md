@@ -230,10 +230,15 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 └── {favicon, icon-*, og-image, manifest, robots, sitemap}.*  # brand + SEO assets
 ```
 
-**Everything in `api/` is a public route; nothing in `lib/` is.** That is the
-only reason `lib/` exists — a module that just builds a string has no business
-being reachable over HTTP. `check-gift-email.mjs` fails if the template is moved
-into `api/`.
+**Everything in `api/` is a public route; `lib/` is not a route — but it IS
+publicly readable.** `lib/` exists so a module that merely builds a string is not
+a Vercel function, but this project serves the repo root statically, so
+`/lib/gift-email.js` returns `200` with the real source (verified against
+production, byte-identical). That is harmless today: the file holds no secrets,
+only `process.env` *names* and the email template. **Never put a literal
+credential in `lib/`** — `check-gift-email.mjs` fails the build if one appears.
+Moving it into `api/` would be worse, not better: `api/` is a function, so the
+template would become a callable endpoint.
 
 **Why `.vercelignore` matters here.** This project has no build step and no
 output directory, so Vercel serves the repo **root** as static files — anything
@@ -522,8 +527,7 @@ renders the template to check escaping and the opt-out, and fails if
 `lib/gift-email.js` is moved into `api/` (which would make the template a public
 endpoint — everything under `api/` is a route).
 
-**Not routed.** The template lives in `lib/`, not `api/`, precisely so it is not
-reachable over HTTP.
+**Not a route, but not private either.** The template lives in `lib/`, not `api/`,\nso it is not a Vercel function — `api/` would make it an endpoint. But because\nthis project serves the repo root statically, `/lib/gift-email.js` **is** readable\n(verified: `200`, byte-identical source). It holds no secrets, and the guard\nfails the build if a literal credential is ever added to it.
 
 **Last updated**: 2026-10-18
 
