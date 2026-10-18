@@ -1,0 +1,52 @@
+# .vercelignore
+#
+# WHY THIS FILE EXISTS
+#
+# This project has no build step and no output directory: Vercel serves the repo
+# root directly as static files. That is convenient, but it also means anything
+# committed is published at its own URL. Verified against production:
+#
+#   /migrations/001_hardening.sql   -> 200, byte-identical
+#   /tests/check-pricing.mjs        -> 200, byte-identical
+#   /tools/build-og-image.py        -> 200, byte-identical
+#   /README-FIXES.md                -> 200
+#
+# None of that is a credential — the Supabase anon key is public by design, and
+# every secret in this project lives in Vercel environment variables, which are
+# never in the repo. So this is not an incident. It is still wrong: the database
+# schema, the internal fix log and the test suite have no reason to be reachable
+# from the open internet, and every file added to those folders is published by
+# default unless someone remembers to think about it.
+#
+# DO NOT ADD 'lib/' TO THIS FILE. api/stripe-webhook.js imports
+# lib/gift-email.js; excluding it breaks the gift delivery at runtime, and the
+# failure is silent — a 500 in a webhook path nobody watches.
+#
+# DO NOT ADD 'package.json' OR 'package-lock.json'. Vercel needs them to install
+# the runtime dependencies for the api/ functions (stripe,
+# @supabase/supabase-js, @vercel/og). Excluding them breaks every endpoint.
+#
+# assets/, api/, *.html, og-image*.png, manifest.json, robots.txt, sitemap and
+# the favicons MUST stay served — they are the actual website.
+
+# Internal documentation and fix history.
+README-FIXES.md
+FUNNEL.md
+FEATURE-ROADMAP.md
+
+# Database schema. Not secret, but no reason to publish the shape of the
+# customer tables — including the new gift_emails recipient addresses.
+migrations/
+
+# Test suite. Publishing it also hands over exactly which invariants are
+# enforced, which is free reconnaissance for anyone probing the checkout.
+tests/
+
+# Local build tooling. Nothing here runs in production; the social card it
+# produces is already committed as a static PNG.
+tools/
+
+# Version control internals.
+.git/
+.gitignore
+.vercelignore

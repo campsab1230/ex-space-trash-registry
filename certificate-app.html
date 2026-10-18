@@ -438,6 +438,25 @@
         </div>
 
         <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #8ab4f8; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enable-email-addon" onchange="toggleEmailAddon()" style="width: auto; margin: 0;" />
+                ✉️ EMAIL IT TO THEM FOR ME (+$4.99)
+            </label>
+
+            <div id="gift-email-fields" style="display: none; margin-top: 10px;">
+                <input type="email" id="gift-recipient-input" class="name-input" maxlength="254"
+                       placeholder="THEIR EMAIL ADDRESS" autocomplete="off"
+                       style="text-transform: none; width: 100%;" />
+                <p style="font-size: 0.72rem; color: #8ab4f8; margin: 8px 0 0 0; line-height: 1.5;">
+                    We send <strong>one</strong> email on your behalf, with the certificate and a link to
+                    the object in orbit. We never share your details with them, and it carries a one-click
+                    opt-out. Only send this to someone who will see the funny side —
+                    see <a href="/legal.html" target="_blank" rel="noopener noreferrer" style="color:#4ef2d2;">Terms</a>.
+                </p>
+            </div>
+        </div>
+
+        <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
             <label for="mail-tier" style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">
                 📬 DIGITAL ONLY, OR PRINTED AND POSTED?
             </label>
@@ -532,6 +551,10 @@
 
         <p id="success-mail-note" style="display:none; color:#4ef2d2; font-size:0.85rem; margin-bottom:20px; line-height:1.5;">
             📬 Your printed certificate is on its way — we post physical copies within 5 business days.
+        </p>
+
+        <p id="success-gift-note" style="display:none; color:#4ef2d2; font-size:0.85rem; margin-bottom:20px; line-height:1.5;">
+            ✉️ The email to them is on its way — sent on your behalf, with the certificate and a link to their piece of debris. Your own copy is below.
         </p>
 
         <button id="download-cert-btn" style="background: #efc84e; color: #000; border: none; padding: 15px; font-size: 1.1rem; box-shadow: 0 0 15px #efc84e; margin-bottom: 15px;">
@@ -1314,6 +1337,11 @@
 
     const EMOJI_ADDON_PRICE = 1.99;
 
+    // Gift delivery — an ADD-ON (the buyer keeps their own certificate too), so
+    // unlike the printed tiers it ADDS to the base rather than replacing it.
+    // Must match EMAIL_ADDON_PRICE in api/create-checkout.js.
+    const EMAIL_ADDON_PRICE = 4.99;
+
     // Flat digital price for every orbit.
     const BASE_PRICE = 2.99;
 
@@ -1357,6 +1385,31 @@
       return document.getElementById('enable-emoji-addon').checked;
     }
 
+    function isEmailAddonSelected() {
+      const el = document.getElementById('enable-email-addon');
+      return !!(el && el.checked);
+    }
+
+    // The server validates this again and is the authority; this exists so the
+    // buyer gets the error while they can still fix it, rather than after a
+    // round trip. Same shape as RECIPIENT_RE in api/create-checkout.js.
+    function getRecipientEmail() {
+      const el = document.getElementById('gift-recipient-input');
+      return el ? el.value.trim().toLowerCase() : '';
+    }
+
+    function isValidRecipient(v) {
+      return /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]{2,}$/.test(String(v || '')) && String(v).length <= 254;
+    }
+
+    function toggleEmailAddon() {
+      const on = isEmailAddonSelected();
+      const box = document.getElementById('gift-email-fields');
+      if (box) box.style.display = on ? 'block' : 'none';
+      updateCheckoutTotal();
+      track('email_addon_toggled', { value: on ? EMAIL_ADDON_PRICE : 0 });
+    }
+
     function getMailTier() {
       const el = document.getElementById('mail-tier');
       const v = el ? el.value : 'none';
@@ -1386,7 +1439,12 @@
       // Printed tiers ARE the full total (digital + print), so they replace the
       // base price rather than adding to it.
       const base = (tier === 'none') ? BASE_PRICE : PRINTED_PRICES[tier];
-      return base + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0);
+      // Both add-ons are additive. The printed tier already INCLUDES the digital
+      // certificate, so a buyer on a printed tier still keeps their own copy and
+      // still legitimately pays the gift fee on top.
+      return base
+        + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0)
+        + (isEmailAddonSelected() ? EMAIL_ADDON_PRICE : 0);
     }
 
     function updateCheckoutTotal() {
@@ -1632,6 +1690,14 @@
       const customMessage = getSanitizedMessage();
       const emojiAddonSelected = isEmojiAddonSelected();
       const emojiOverlay = emojiAddonSelected ? getSanitizedEmoji() : '';
+      const emailAddonSelected = isEmailAddonSelected();
+      const recipientEmail = emailAddonSelected ? getRecipientEmail() : '';
+      // Refuse before the round trip: the server would reject this anyway, and
+      // the buyer is about to be charged $4.99 for a send that cannot happen.
+      if (emailAddonSelected && !isValidRecipient(recipientEmail)) {
+        showError('Enter a valid email address for the gift delivery, or untick the email option.');
+        return;
+      }
       const btn = document.getElementById('checkout-button');
       btn.disabled = true;
       btn.innerText = "REDIRECTING...";
@@ -1650,7 +1716,9 @@
             emojiOverlay: emojiOverlay,
             certificateTemplate: certTemplate,
             mailTier: getMailTier(),
-            userEmail: currentUser
+            userEmail: currentUser,
+            emailGift: emailAddonSelected,
+            recipientEmail: recipientEmail
           })
         });
         if (res.status === 409) {
@@ -2003,6 +2071,19 @@
           mailNote.style.display = 'block';
         } else {
           mailNote.style.display = 'none';
+        }
+
+        // Gift confirmation. Deliberately does NOT claim the email has arrived —
+        // it is sent by the webhook, which may still be in flight or may have hit
+        // a provider problem. "Sent" would be a lie we cannot back up; "on its
+        // way" is true from the moment the payment clears.
+        const giftNote = document.getElementById('success-gift-note');
+        if (giftNote) {
+          if (result.metadata && result.metadata.giftEmail === 'true') {
+            giftNote.style.display = 'block';
+          } else {
+            giftNote.style.display = 'none';
+          }
         }
         track('checkout_completed', { noradId, value: result.amountTotal != null ? result.amountTotal / 100 : undefined });
         document.getElementById('verifying-modal').style.display = 'none';

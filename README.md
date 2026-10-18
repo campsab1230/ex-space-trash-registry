@@ -41,6 +41,10 @@ printed and posted. Every orbit costs the same.
    attribution for outreach links (append `?ref=<channel>` or
    `?utm_source=<channel>` to a DM link and events are tagged with it; the
    table stores a short sanitised token, **never** the raw query string).
+9. **Gift delivery** — an optional **$4.99** add-on that emails a copy of the
+   certificate to a recipient the buyer names, with a link to the object in
+   orbit. See *Gift delivery* below — it is the only feature that mails a third
+   party, and it is built accordingly.
 
 ---
 
@@ -99,6 +103,8 @@ certificate-app.html
         └─ Stripe Checkout (hosted)
              └─ POST /api/stripe-webhook  → verifies signature, confirms
                 payment_status === 'paid', writes the global_registry row
+                   └─ if the gift add-on was bought: claims gift_emails
+                      (UNIQUE on session id), sends ONE email, records the result
                    └─ certificate-app.html polls GET /api/verify-session → shows the
                       certificate and enables download
 ```
@@ -111,7 +117,7 @@ certificate-app.html
 | --- | --- | --- |
 | `/api/get-celestrak-debris` | GET | Debris list, Fisher-Yates shuffled |
 | `/api/create-checkout` | POST | Flat price; server derives the total |
-| `/api/stripe-webhook` | POST | Stripe-only writer to the registry |
+| `/api/stripe-webhook` | POST | Stripe-only writer to the registry; also sends the gift email if bought |
 | `/api/verify-session` | GET | Read-only, `?session_id=` |
 | `/api/og-image` | GET | 1200×630 PNG, `?id=<noradId>` — generic card if unclaimed |
 | `/api/trash-page` | GET | Share page (routed from `/trash/:slug`) |
@@ -129,6 +135,9 @@ certificate-app.html
 | `STRIPE_SECRET_KEY` | `create-checkout`, `verify-session`, `stripe-webhook` |
 | `STRIPE_WEBHOOK_SECRET` | `stripe-webhook` |
 | `SITE_URL` | `create-checkout` |
+| `RESEND_API_KEY` | `stripe-webhook` — gift delivery. **Without it the gift add-on silently cannot send**: the webhook logs `RESEND_API_KEY is not set` and returns a retryable failure, and the buyer's $4.99 goes undelivered. Set it before the option is advertised. |
+| `GIFT_EMAIL_FROM` | `stripe-webhook` — `"ExSpaceTrash <gifts@exspacetrash.com>"`. The address **must be on a domain verified with the provider**, or every send is rejected with a permanent 4xx. |
+| `GIFT_EMAIL_REPLY_TO` | `stripe-webhook` — where recipient replies land. Defaults to the support address. This is the address the email promises will honour an opt-out, so it must be monitored. |
 
 ---
 
@@ -210,13 +219,33 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 ├── certificate-app.html       # 3D scene, claim flow, certificates, post-checkout confirmation
 ├── legal.html                 # terms & novelty disclaimer
 ├── vercel.json                # rewrites: /trash/*, /wall, /sitemap.xml
+├── .vercelignore              # keeps migrations/tests/tools off the public internet (see note)
 ├── package.json               # "type": "module" — all api/ files are ESM
-├── api/                       # Vercel serverless functions
+├── api/                       # Vercel serverless functions — every file here is a PUBLIC ROUTE
+├── lib/                       # shared modules imported by api/ — NOT routed
+│   └── gift-email.js          # builds the gift email; deliberately outside api/
 ├── assets/certs/              # certificate artwork + the baked hero sample (1024×765)
 ├── migrations/                # SQL to run in Supabase
 ├── public/                    # static passthrough
 └── {favicon, icon-*, og-image, manifest, robots, sitemap}.*  # brand + SEO assets
 ```
+
+**Everything in `api/` is a public route; nothing in `lib/` is.** That is the
+only reason `lib/` exists — a module that just builds a string has no business
+being reachable over HTTP. `check-gift-email.mjs` fails if the template is moved
+into `api/`.
+
+**Why `.vercelignore` matters here.** This project has no build step and no
+output directory, so Vercel serves the repo **root** as static files — anything
+committed is published at its own URL unless excluded. Verified against
+production: `/migrations/001_hardening.sql`, `/tests/check-pricing.mjs` and
+`/tools/build-og-image.py` all returned `200` with byte-identical content. None
+of it is a credential (every secret lives in Vercel env vars, and the Supabase
+anon key is public by design), but the schema, the internal fix log and the test
+suite should not be crawlable. Two things must **never** be added to that file:
+`lib/` (the webhook imports it — excluding it breaks gift delivery silently) and
+`package.json` / `package-lock.json` (Vercel needs them to install the `api/`
+runtime dependencies).
 
 ---
 
@@ -233,6 +262,14 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
   Vercel's build transform handles it.
 - The anon key in `certificate-app.html` is intentionally public. Security relies on RLS,
   not on the key being secret. Never put a service-role key in the front end.
+- **Gift delivery cannot send without `RESEND_API_KEY` and a verified
+  `GIFT_EMAIL_FROM` domain.** Without them the webhook logs the failure and asks
+  Stripe to retry, so the purchase still succeeds — but the buyer paid $4.99 for
+  an email that never goes out. Check
+  `SELECT status, count(*) FROM gift_emails GROUP BY 1;` before advertising it.
+- **Anything not in `.vercelignore` is publicly readable.** Adding a file to
+  `migrations/`, `tests/` or `tools/` is safe; adding a new top-level folder is
+  not — it will be served at its own path until it is excluded.
 
 **Last updated**: 2026-09-22
 
@@ -242,13 +279,14 @@ To browse other people's claims, visit [`/wall`](https://www.exspacetrash.com/wa
 
 Nine zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
 or individually after any change to pricing, the checkout handoff, analytics,
-the 3D scene, the certificate layout, or the sticker pack:
+the 3D scene, the certificate layout, the sticker pack, or the gift email:
 
 ```bash
-npm test                            # runs all nine, in order
+npm test                            # runs all ten, in order
 node tests/check-contracts.mjs      # client/server key names match
 node tests/check-cert-layout.mjs    # certificate stays structurally collision-proof
 node tests/check-pricing.mjs        # prices agree across client, server, legal page
+node tests/check-gift-email.mjs     # gift fee agrees, send is idempotent + escaped
 node tests/check-cleanref.mjs       # analytics input sanitiser resists hostile input
 node tests/check-emoji-scene.mjs    # the $1.99 emoji add-on renders on the 3D object
 node tests/check-og-image.mjs       # OG handler stays JSX-free + cache contract holds
@@ -418,6 +456,79 @@ Every order — digital-only and printed alike — includes a downloadable **sti
 
 ---
 
+## Gift delivery ("email it to them for me", +$4.99)
+
+An optional add-on: the buyer names an address and we send **one** email on
+their behalf, with the certificate and a link to the object in orbit. The buyer
+always keeps their own certificate too — this is additive, like the emoji add-on,
+not a bundle total like the printed tiers.
+
+**It is the only thing on this site that mails someone who did not ask for it**,
+and every design decision below follows from that. A gag that arrives once is
+funny; the same gag arriving repeatedly is harassment, and it is the kind that
+gets a sending domain blacklisted.
+
+### One purchase, exactly one email
+
+Stripe retries webhooks — on a 500, on a timeout, and sometimes for no visible
+reason. The webhook sends the email and *then* records the result, so a retry
+landing between those two steps would put a second email in a stranger's inbox.
+
+The fix is `UNIQUE(stripe_session_id)` on `gift_emails`, not a "have we sent
+this?" read. The webhook **INSERTs the claim before sending** and treats a
+`23505` duplicate-key error as *already delivered, stand down*. A read-then-send
+check cannot close this window; the constraint can. `check-gift-email.mjs` fails
+the build if the `UNIQUE` disappears.
+
+### The buyer cannot write the message
+
+Only four values reach the template: the ex's name, the object, its NORAD id, and
+the short optional message. All four are escaped, and there is **no free-text
+body field** — so this can never be turned into an open relay for sending
+arbitrary text to a stranger. The guard renders the template with hostile input
+(`<script>`, `<img onerror=>`) and asserts nothing live survives.
+
+It also asserts **no price appears in the email**. The recipient is the
+punchline, not the customer; showing what their ex paid turns a joke into a
+receipt.
+
+### The failure paths, and why each one goes the way it does
+
+| Situation | Behaviour | Why |
+| --- | --- | --- |
+| Invalid/missing recipient, add-on selected | **400, sale refused** | The alternative — accepting the money and quietly skipping the send — charges $4.99 for nothing. A rejection is visible and fixable. |
+| Provider 4xx (bad address, unverified domain) | Record `failed`, **do not retry** | It will fail identically forever; retrying only makes noise. |
+| Provider 5xx / 429 / network error | Return **500**, let Stripe retry | Transient by definition. Stripe's retry queue is a free scheduler — no cron to maintain. |
+| `RESEND_API_KEY` unset | Retryable failure, logged loudly | Better a noisy failure than a silent undelivered purchase. |
+| `migrations/004` not applied | Log loudly, **still return 200** | The claim is already recorded and the certificate is unaffected. Failing the whole purchase over a missing table would be far worse. |
+| Anything throws in the gift path | Caught and logged | A 500 here would make Stripe retry a purchase that has already been granted. |
+
+### The address is the recipient's, not the buyer's
+
+`gift_emails.recipient_email` is the address the buyer typed. The **buyer's own**
+address is deliberately not stored — Stripe already has it, and copying a
+customer's email into a second table buys nothing and is one more thing to leak.
+The address is also duplicated into Stripe metadata so that a missing migration
+cannot make a paid delivery permanently unmakeable.
+
+Replies go to a monitored support address (`GIFT_EMAIL_REPLY_TO`), never to the
+buyer — the message promises "reply and we will block this", and that promise is
+only kept if a human reads the reply.
+
+**Guard.** `check-gift-email.mjs` is the tenth guard. It pins the fee across
+client and server, asserts the send sits *after* the `payment_status === 'paid'`
+check, asserts the `UNIQUE` constraint and the `23505` handling, imports and
+renders the template to check escaping and the opt-out, and fails if
+`lib/gift-email.js` is moved into `api/` (which would make the template a public
+endpoint — everything under `api/` is a route).
+
+**Not routed.** The template lives in `lib/`, not `api/`, precisely so it is not
+reachable over HTTP.
+
+**Last updated**: 2026-10-18
+
+---
+
 ## The social card (`og-image.png`)
 
 `og-image.png` is the **static** card every social platform unfurls when someone
@@ -529,5 +640,5 @@ status heading; scanning it here produced three false positives on the first
 run, which is why `check-pricing.mjs` owns the homepage/decision-surface policy
 instead.
 
-**Last updated**: 2026-09-24
+**Last updated**: 2026-10-18
 
