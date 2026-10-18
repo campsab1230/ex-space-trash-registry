@@ -36,6 +36,41 @@ check('client no longer destructures the non-existent `template` key',
 check('client reads `certificateTemplate` (the real key name)',
       clientKeys.includes('certificateTemplate'));
 
+// --- 2b. property ACCESS, not just destructuring ---
+//
+// THE GAP THIS CLOSES. Everything above only inspects keys the client pulls out
+// via `const { ... } = result.metadata`. But the client can just as easily read
+// `result.metadata.giftEmail` — and that form was completely unchecked, so when
+// verify-session.js forgot to return `giftEmail`, the success screen's
+// `result.metadata.giftEmail === 'true'` was permanently `undefined`, the gift
+// confirmation never rendered, and a buyer who paid $4.99 for the add-on was
+// shown no acknowledgement of it at all. No error. No failing test.
+//
+// An untyped JSON handoff does not care HOW the client reads a key. So collect
+// every `result.metadata.<key>` access and require the server to provide each.
+const accessedKeys = [...idx.matchAll(/result\.metadata\.([a-zA-Z][a-zA-Z0-9]*)/g)].map(m=>m[1]);
+console.log('client accesses metadata.', [...new Set(accessedKeys)].join(', ') || '(none)');
+for (const k of new Set(accessedKeys)) {
+  check(`client accesses metadata.${k} and server provides it`, serverKeys.includes(k),
+        `<- server has: ${serverKeys.join(', ')}`);
+}
+// Guard the guard: if the client stops reading metadata by property access at
+// all, this section silently stops testing anything.
+check('at least one metadata property access is checked (guard is not vacuous)',
+      new Set(accessedKeys).size > 0);
+
+// --- 2c. every gift key the success screen needs must survive the handoff ---
+// Named explicitly because this is the exact pair that broke: the add-on is
+// recorded at checkout, sent by the webhook, and confirmed via verify-session —
+// three separate files, and the confirmation only works if this one key is
+// echoed back.
+check('verify-session returns giftEmail (or the gift confirmation silently never shows)',
+      serverKeys.includes('giftEmail'));
+check('giftEmail is normalised to the string the client compares against',
+      /giftEmail:\s*session\.metadata\?\.giftEmail === 'true' \? 'true' : 'false'/.test(vses));
+check('verify-session does NOT echo the recipient address back to the browser',
+      !/recipientEmail:\s*session\.metadata/.test(vses));
+
 // --- 3. top-level keys ---
 for (const k of ['paid','registered','amountTotal']) {
   check(`server returns top-level "${k}"`,
