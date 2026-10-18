@@ -1,6 +1,6 @@
 # ExSpaceTrash.com
 
-Pay **$7.99** to name a real, catalogued piece of orbital debris after your ex
+Pay **$2.99** to name a real, catalogued piece of orbital debris after your ex
 and download a novelty certificate — or **$19.99 / $29.99** to also have it
 printed and posted. Every orbit costs the same.
 
@@ -374,7 +374,7 @@ Two separate surfaces had to go, and the second is the one that is easy to miss:
 
 **The price must still exist somewhere crawlable.** It now lives only on
 `certificate-app.html`, whose own JSON-LD carries the real `Product` +
-`AggregateOffer` at `7.99 / 19.99 / 29.99`. That file is where a visitor has
+`AggregateOffer` at `2.99 / 19.99 / 29.99`. That file is where a visitor has
 engaged with the product and where the purchase decision actually happens —
 hiding the number *at the decision point* is what makes people abandon. The
 funnel keeps exactly one authoritative price, one page deeper.

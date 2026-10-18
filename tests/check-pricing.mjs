@@ -51,7 +51,20 @@ for (const tier of ['domestic', 'international']) {
   ok(Math.abs(serverTotal(tier) - coPrinted[tier]) < 1e-9,
      `server total for ${tier} (${serverTotal(tier)}) != advertised (${coPrinted[tier]})`);
 }
-ok(Math.abs(serverTotal('none') - 7.99) < 1e-9, `digital total is ${serverTotal('none')}, expected 7.99`);
+ok(Math.abs(serverTotal('none') - 2.99) < 1e-9, `digital total is ${serverTotal('none')}, expected 2.99`);
+
+// The digital price is a business decision, not a free variable, and the real
+// constraint is the FIXED part of the Stripe fee (2.9% + $0.30), which dominates
+// small orders. At $2.99 the fee is ~12.9% of revenue; the old $1.99 tier ran at
+// 18%, and that is the level that made flattening worth doing in the first
+// place. Every other assertion in this file DERIVES from the constants, so a
+// price cut stays perfectly self-consistent and nothing else would notice — pin
+// the floor here, where the number is actually asserted.
+const feePct = (p) => ((0.029 * p + 0.30) / p) * 100;
+ok(coBase >= 2.99,
+   `BASE_PRICE $${coBase} is below the $2.99 floor (fee would be ${feePct(coBase).toFixed(1)}% of revenue)`);
+ok(feePct(coBase) < 18,
+   `Stripe fee is ${feePct(coBase).toFixed(1)}% of revenue — at or above the 18% the old $1.99 tier ran at`);
 
 // --- 3. no stale price strings anywhere user-facing ---
 // "User-facing" is the operative word: certificate-app.html legitimately DOCUMENTs the
@@ -74,7 +87,7 @@ for (const [re, msg] of stalePatterns) {
 }
 
 // --- 4. the three numbers a cold visitor must see ---
-for (const [needle, label] of [['$7.99','base price'], ['$19.99','domestic printed'], ['$29.99','international printed']]) {
+for (const [needle, label] of [['$2.99','base price'], ['$19.99','domestic printed'], ['$29.99','international printed']]) {
   ok(idx.includes(needle), `hero/modal is missing ${label} (${needle})`);
 }
 
@@ -110,7 +123,7 @@ ok(home.includes('GET MY CERTIFICATE'), 'homepage lost its call to action');
 
 // The app page is where the number legitimately appears - and where it MUST,
 // since hiding it at the decision point is what makes people abandon.
-ok(/\$7\.99/.test(idx), 'app page lost its entry price');
+ok(/\$2\.99/.test(idx), 'app page lost its entry price');
 
 if (failures.length) {
   console.error('\n❌ FAILURES:'); failures.forEach(f => console.error('  -', f));

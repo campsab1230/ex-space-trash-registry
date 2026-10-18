@@ -115,7 +115,7 @@ a novelty product:
 ## Deliberately NOT recommended
 
 - **More 3D polish.** The scene is already the best part of the site.
-- **Discounts.** At $1.99 the price is not the objection; traffic is.
+- **Discounts.** At $2.99 the price is not the objection; traffic is.
 - **Ad spend before the free-preview path exists.** You would be buying
   expensive bounces.
 - **A customer accounts system.** Order lookup by email (Tier 2 #9) gives 90% of

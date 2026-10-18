@@ -10,10 +10,23 @@
 //   require()/module.exports, which throws "require is not defined" at load
 //   time — so every request 500'd before any logic ran. Converted to ESM.
 //
-// PRICING (flat, as of 1.2.0): every orbit costs the same $7.99. The old
-//   orbit-based tiers (LEO/MEO/GEO = 1.99/5.99/9.99) averaged only $4.85 per
-//   sale and made a $1.99 Stripe fee eat 18% of revenue; a flat $7.99 lifts the
-//   catalogue average 1.65x and cuts that fee to 6.7%.
+// PRICING (flat): every orbit costs the same $2.99. The old orbit-based tiers
+//   (LEO/MEO/GEO = 1.99/5.99/9.99) averaged only $4.85 per sale and let the
+//   FIXED part of the Stripe fee eat 18% of revenue; flattening removed that.
+//
+//   A note on the fee, because it is the real constraint here. Stripe charges
+//   2.9% + $0.30, so the fixed $0.30 dominates small orders:
+//       $7.99 -> ~$0.53 fee -> 6.7% of revenue
+//       $2.99 -> ~$0.39 fee -> 12.9% of revenue
+//   $2.99 is therefore a deliberate trade: a materially lower entry price in
+//   exchange for a higher fee percentage. It is still well clear of the 18%
+//   the old $1.99 tier suffered, because that tier also averaged down to $1.99
+//   rather than being a flat $2.99. Do not drop below this without redoing the
+//   arithmetic — every cent below $2.99 moves the percentage the wrong way.
+//
+//   PRINTED_PRICES below are UNCHANGED by this. They are set by what postage
+//   actually costs, not by the digital price, so lowering the digital price does
+//   not make an overseas parcel any cheaper to send.
 //
 //   The object's own `stat` altitude is still parsed, but only as a sanity
 //   check on the object — it no longer determines the price, because every
@@ -36,7 +49,7 @@ const EMOJI_ADDON_PRICE = 1.99;
 
 // Flat digital price. Every orbit costs the same; the orbit no longer sets the
 // price. Must match BASE_PRICE in certificate-app.html.
-const BASE_PRICE = 7.99;
+const BASE_PRICE = 2.99;
 
 // PRINTED totals (digital + a posted copy), NOT add-ons:
 //   domestic      $19.99 — flat + rigid mailer + first-class US postage is

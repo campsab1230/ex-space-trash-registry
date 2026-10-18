@@ -41,14 +41,14 @@
       "offers": {
         "@type": "AggregateOffer",
         "priceCurrency": "USD",
-        "lowPrice": "7.99",
+        "lowPrice": "2.99",
         "highPrice": "29.99",
         "offerCount": "3",
         "offers": [
           {
             "@type": "Offer",
             "name": "Digital Dedication Certificate",
-            "price": "7.99",
+            "price": "2.99",
             "priceCurrency": "USD",
             "availability": "https://schema.org/InStock",
             "url": "https://www.exspacetrash.com/"
@@ -305,7 +305,7 @@
                 <div class="hero-price-block">
                     <div class="hero-price-row">
                         <span class="hero-price-label">ALL ORBITS</span>
-                        <span class="hero-price-amt">$7.99</span>
+                        <span class="hero-price-amt">$2.99</span>
                     </div>
                     <div class="hero-price-row">
                         <span class="hero-price-label">DIGITAL + PRINTED</span>
@@ -443,7 +443,7 @@
             </label>
             <select id="mail-tier" onchange="toggleMailAddon()" class="name-input"
                     style="text-transform: none; width: 100%; cursor: pointer;">
-                <option value="none">Digital only — $7.99</option>
+                <option value="none">Digital only — $2.99</option>
                 <option value="domestic">Digital + printed, posted in the USA — $19.99</option>
                 <option value="international">Digital + printed, posted worldwide — $29.99</option>
             </select>
@@ -1132,9 +1132,11 @@
         type: data.officialName || 'Unidentified Debris',
         stat: `${data.tierLabel || 'Catalogued debris'} • Alt: ${data.altKm ? data.altKm.toLocaleString() : '?'} km`,
         altKm: data.altKm,
-        // FLAT price. Orbit no longer changes the cost: flattening raised the
-        // catalogue average from $4.85 to $7.99 (1.65x), and lifted the Stripe
-        // fee from 18% of a $1.99 sale down to 6.7%.
+        // FLAT price. Orbit no longer changes the cost: flattening removed the
+        // orbit-based tiers that averaged down to $4.85 a sale, where the FIXED
+        // part of the Stripe fee (2.9% + $0.30) ate 18% of revenue. A flat $2.99
+        // sits at ~12.9% — higher than the $7.99 tier's 6.7%, but a deliberate
+        // trade for a materially lower entry price, and still well clear of 18%.
         // NOTE: display only — the server recomputes the real amount.
         price: BASE_PRICE,
         regime,
@@ -1313,7 +1315,7 @@
     const EMOJI_ADDON_PRICE = 1.99;
 
     // Flat digital price for every orbit.
-    const BASE_PRICE = 7.99;
+    const BASE_PRICE = 2.99;
 
     // PRINTED is a BUNDLE price, not an add-on: it is the whole total for
     // digital + a printed copy posted to the buyer. Making it the total means
@@ -1324,6 +1326,13 @@
     //   international $29.99 — First-Class Package International STARTS at
     //                           about $19.40, so the US price would have LOST
     //                           money on every overseas order.
+    //
+    // These are driven by POSTAGE, not by the digital price, so they do NOT move
+    // when BASE_PRICE does. The server charges the digital line plus
+    // (PRINTED_PRICES[tier] - BASE_PRICE) as the print line, so the receipt still
+    // itemises the print and totals exactly the number advertised here. A lower
+    // BASE_PRICE therefore makes the *print line* larger while the bundle total
+    // stays put — it does not make an overseas parcel any cheaper to send.
     // These must match PRINTED_PRICES in api/create-checkout.js.
     const PRINTED_PRICES = { none: 0, domestic: 19.99, international: 29.99 };
 
