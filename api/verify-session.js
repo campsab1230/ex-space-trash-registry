@@ -46,6 +46,11 @@ export default async function handler(req, res) {
         exName: session.metadata?.exName,
         customMessage: session.metadata?.customMessage,
         emojiOverlay: session.metadata?.emojiOverlay,
+        // Normalised to a 'true'/'false' STRING, never a boolean. The client
+        // compares against 'true'; handing it a real boolean here would make
+        // the comparison silently false and the paid download would never
+        // appear. (Same failure shape as the certificateTemplate bug.)
+        coloringAddon: session.metadata?.coloringAddon === 'true' ? 'true' : 'false',
         certificateTemplate: session.metadata?.certificateTemplate,
         mailTier: ['domestic', 'international'].includes(session.metadata?.mailTier)
           ? session.metadata.mailTier

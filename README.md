@@ -260,12 +260,12 @@ runtime dependencies).
 
 ## Tests
 
-Nine zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
+Ten zero-dependency guard checks live in `tests/`. Run them all with `npm test`,
 or individually after any change to pricing, the checkout handoff, analytics,
-the 3D scene, the certificate layout, or the sticker pack:
+the 3D scene, the certificate layout, the sticker pack, or the coloring packet:
 
 ```bash
-npm test                            # runs all nine, in order
+npm test                            # runs all ten, in order
 node tests/check-contracts.mjs      # client/server key names match
 node tests/check-cert-layout.mjs    # certificate stays structurally collision-proof
 node tests/check-pricing.mjs        # prices agree across client, server, legal page
@@ -275,6 +275,7 @@ node tests/check-og-image.mjs       # OG handler stays JSX-free + cache contract
 node tests/check-discovery.mjs      # sitemap unshadowed, JSON-LD prices match checkout
 node tests/check-entry-flow.mjs     # homepage → app → post-checkout is connected
 node tests/check-sticker-pack.mjs   # pack exists, is linked, is tracked, is disclosed
+node tests/check-coloring-packet.mjs # paid add-on: gated, priced, revealed, tracked
 ```
 
 They exist because the bugs that actually cost money here are **silent**:
@@ -356,7 +357,7 @@ They exist because the bugs that actually cost money here are **silent**:
   claim's card is immutable for a year, but a fallback card must expire in
   minutes or a link shared mid-purchase pins a blank preview on that object.
 
-All nine exit non-zero on failure, so they can gate a deploy.
+All ten exit non-zero on failure, so they can gate a deploy.
 
 > **Why the og-image guard strips comments before asserting.** The file's own
 > header comment names the old `claims` / `custom_name` bug, so a naive grep
@@ -434,11 +435,83 @@ Every order — digital-only and printed alike — includes a downloadable **sti
 
 **If it breaks, nothing tells you.** It is a free extra, so no one emails; and `/api/track` silently `204`s any event not on its allow-list. `sticker_pack_downloaded` is on that list, and the guard fails if it is removed — otherwise the funnel would undercount clicks with no error anywhere.
 
-**Coloring book (planned, not built).** A separate coloring book using the same characters is intended for a future *break-up package* — it is **not** part of this sticker pack and is not wired into the success modal. Do not fold it into the free pack without deciding the package structure first.
+**The coloring packet (paid add-on, built).** A 12-page printable coloring book
+of the same world — space junk, the crew, the neighborhood — sold at checkout
+for **$3.99** as an optional add-on. It is **not** part of the free sticker pack
+and **not** bundled into any tier. The earlier note here said this was planned
+for a future break-up package; the *break-up manual* is still deferred, but the
+coloring packet shipped as its own paid add-on. See the section below.
 
 ---
-## The social card (`og-image.png`)
 
+## The coloring packet ($3.99 paid add-on)
+
+An optional **12-page printable coloring book**, offered as a checkbox at checkout
+and delivered in the post-purchase success modal. **Paid, and gated** — this is the
+structural difference from the sticker pack above, and it drives everything else.
+
+| Asset | Path | Size |
+|---|---|---|
+| US Letter PDF | `assets/coloring/coloring-packet-letter.vd360da8682ff.pdf` | 1,776,343 B |
+| A4 PDF | `assets/coloring/coloring-packet-a4.vee0c3a50ece3.pdf` | 1,943,752 B |
+
+**13 pages each**: a cover plus 12 coloring pages, on the correct page geometry
+(Letter 612×792 pt, A4 595×842 pt). Every page is **1-bit** — thresholded with
+Otsu after a Lanczos resample, so there is no grey, no anti-aliasing halo, and no
+halftone: it prints as pure black lines on white. Verified per page: **0.0% solid
+black blocks**, ink coverage 8.7–13.2%, which is the band a coloring page wants —
+enough line to be interesting, not so much that there is nothing left to colour.
+
+**The art is generated, not scanned.** The pages are 3584×4800 (11.9 × 16.0 in at
+300 dpi) — comfortably above Letter, so nothing is upscaled to fill a page. Titles
+and page numbers are drawn as **vector text by ReportLab**, not baked into the
+images, so they stay crisp at any print size and can be corrected without
+regenerating artwork.
+
+> **Why the art was regenerated.** The packet was originally meant to use supplied
+> images. Measurement showed they could not be sold: three were **phone
+> screenshots** with the Android status bar and nav bar burned in (36% of one file
+> was chrome, and the art inside was only 473 px wide), one was a **photograph of
+> paper**, one was **already coloured in**, and the best real master was 683 px
+> wide — 2.3 in at 300 dpi. Two of the nine were also the *same drawing* with
+> different backgrounds. So the pages here are generated to print resolution
+> instead, in a single consistent style.
+
+**Why it is gated and the sticker pack is not.** The sticker pack is a freebie, so
+gating it protects zero revenue. This one costs $3.99, so the site must not hand
+it to someone who did not pay. The success screen therefore **does not know where
+the PDF lives** — it calls `/api/coloring-download?session_id=…&kind=…`, which
+re-checks with Stripe that the session is `paid` **and** that its metadata says
+`coloringAddon === 'true'`, then redirects. An allow-list maps `kind` to a file, so
+the parameter cannot be walked to another path. `check-coloring-packet.mjs` asserts
+the client never hardcodes a PDF path — if someone "simplifies" it back to a static
+link, the gate becomes decorative and the guard fails.
+
+**Honest scope limit.** This stops the *site* from serving the file to a
+non-payer. It does not make the static path unreachable by someone who already has
+the URL — the PDFs still live in the deployed static tree, same as every other
+asset in this repo. Making them truly private means keeping them out of the static
+tree entirely (bundled into a function, or moved to private storage), which is a
+deployment-shape change and was deliberately not done here. The gate raises the bar
+from "anyone can take it" to "only a payer is given it".
+
+**The fee math says this price is safe.** $3.99 → ~$0.42 → **10.4%** of revenue,
+which is *better* than the $2.99 digital certificate (12.9%) because the fixed
+$0.30 spreads over a larger amount. That is the opposite trade to the retired
+$1.99 emoji add-on, which ran at 18%. Nothing ships, so no postage is bundled in
+and the printed tiers do not affect this price.
+
+**The failure that matters is silent.** If the reveal breaks, a buyer pays $3.99
+and sees nothing — no error, and the page looks like the normal free flow. That is
+why `coloringAddon` is normalised to the **string** `'true'` in
+`api/verify-session.js`: handing the client a real boolean would make its
+`=== 'true'` comparison quietly false, which is the exact bug that once shipped
+with `certificateTemplate`. The guard pins both the string type and the hidden-by-
+default markup, so a $2.99 buyer can never be shown a $3.99 download.
+
+---
+
+## The social card (`og-image.png`)
 `og-image.png` is the **static** card every social platform unfurls when someone
 links `exspacetrash.com` — X/Twitter, iMessage, Slack, Discord, LinkedIn,
 Facebook. It is referenced from seven places: `index.html` (og:image,

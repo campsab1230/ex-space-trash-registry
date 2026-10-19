@@ -438,6 +438,16 @@
         </div>
 
         <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
+            <label style="font-size: 0.85rem; color: #8ab4f8; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enable-coloring-addon" onchange="toggleColoringAddon()" style="width: auto; margin: 0;" />
+                ADD COLORING PACKET (+$3.99)
+            </label>
+            <div id="coloring-addon-note" style="display: none; margin-top: 8px; font-size: 0.72rem; color: #666; line-height: 1.5;">
+                12 printable coloring pages of space junk, the crew and the neighborhood. Delivered as an instant download in both US Letter and A4 — nothing is posted.
+            </div>
+        </div>
+
+        <div style="text-align:left; margin: 15px 0; border-top: 1px dashed #333; padding-top: 15px;">
             <label for="mail-tier" style="font-size: 0.85rem; color: #8ab4f8; display: block; margin-bottom: 8px;">
                 📬 DIGITAL ONLY, OR PRINTED AND POSTED?
             </label>
@@ -550,6 +560,17 @@
                 <button id="sticker-pdf-letter-btn" onclick="downloadStickerPack('letter')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF SHEET<br><span style="opacity:.75; font-size:0.7rem;">US Letter</span></button>
                 <button id="sticker-pdf-a4-btn" onclick="downloadStickerPack('a4')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF SHEET<br><span style="opacity:.75; font-size:0.7rem;">A4</span></button>
                 <button id="sticker-png-btn" onclick="downloadStickerPack('png')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">✨ TRANSPARENT PNGs<br><span style="opacity:.75; font-size:0.7rem;">ZIP · 5 files</span></button>
+            </div>
+        </div>
+
+        <div id="coloring-pack-block" style="display:none; border-color: rgba(0,240,255,.38); border-style: solid; border-width: 1px; border-radius: 10px; padding: 12px 14px; margin: 18px 0 12px; background: rgba(0,240,255,.045);">
+            <p style="color:#8ab4f8; font-size:0.78rem; margin:0 0 10px; line-height:1.5;">
+                <strong style="color:#00f0ff;">🎨 YOUR COLORING PACKET</strong><br>
+                12 pages of space junk, the crew and the neighborhood to color in. Print at home — US Letter and A4 are both included.
+            </p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                <button id="coloring-letter-btn" onclick="downloadColoringPacket('letter')" style="flex:1 1 130px; background:transparent; border:1px solid #00f0ff; color:#00f0ff; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF<br><span style="opacity:.75; font-size:0.7rem;">US Letter</span></button>
+                <button id="coloring-a4-btn" onclick="downloadColoringPacket('a4')" style="flex:1 1 130px; background:transparent; border:1px solid #00f0ff; color:#00f0ff; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF<br><span style="opacity:.75; font-size:0.7rem;">A4</span></button>
             </div>
         </div>
 
@@ -1313,6 +1334,10 @@
     }
 
     const EMOJI_ADDON_PRICE = 1.99;
+    // Paid add-on: the printable coloring packet. Must match
+    // COLORING_ADDON_PRICE in api/create-checkout.js, which is the side that
+    // actually decides the money.
+    const COLORING_ADDON_PRICE = 3.99;
 
     // Flat digital price for every orbit.
     const BASE_PRICE = 2.99;
@@ -1357,6 +1382,17 @@
       return document.getElementById('enable-emoji-addon').checked;
     }
 
+    function isColoringAddonSelected() {
+      return document.getElementById('enable-coloring-addon').checked;
+    }
+
+    function toggleColoringAddon() {
+      const on = isColoringAddonSelected();
+      document.getElementById('coloring-addon-note').style.display = on ? 'block' : 'none';
+      updateCheckoutTotal();
+      track('coloring_addon_toggled', { value: COLORING_ADDON_PRICE });
+    }
+
     function getMailTier() {
       const el = document.getElementById('mail-tier');
       const v = el ? el.value : 'none';
@@ -1386,7 +1422,9 @@
       // Printed tiers ARE the full total (digital + print), so they replace the
       // base price rather than adding to it.
       const base = (tier === 'none') ? BASE_PRICE : PRINTED_PRICES[tier];
-      return base + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0);
+      return base
+        + (isEmojiAddonSelected() ? EMOJI_ADDON_PRICE : 0)
+        + (isColoringAddonSelected() ? COLORING_ADDON_PRICE : 0);
     }
 
     function updateCheckoutTotal() {
@@ -1531,6 +1569,8 @@
       document.getElementById('message-char-count').textContent = '0';
       document.getElementById('enable-emoji-addon').checked = false;
       document.getElementById('emoji-picker').style.display = 'none';
+      document.getElementById('enable-coloring-addon').checked = false;
+      document.getElementById('coloring-addon-note').style.display = 'none';
       document.getElementById('custom-emoji-input').value = '💔';
       document.getElementById('mail-tier').value = 'none';
       document.getElementById('mail-addon-note').style.display = 'none';
@@ -1648,6 +1688,7 @@
             price: BASE_PRICE, // server recomputes the real total regardless
             emojiAddon: emojiAddonSelected,
             emojiOverlay: emojiOverlay,
+            coloringAddon: isColoringAddonSelected(),
             certificateTemplate: certTemplate,
             mailTier: getMailTier(),
             userEmail: currentUser
@@ -1797,6 +1838,35 @@
       track('sticker_pack_downloaded', { kind });
       btn.innerHTML = 'SAVED ✓';
       setTimeout(() => { btn.innerHTML = original; }, 2500);
+    }
+
+    // =====================================================================
+    // 9a-bis. COLORING PACKET — a PAID add-on, so unlike the free sticker
+    //     pack above this is NOT a plain static link. The success screen has no
+    //     idea where the PDF lives; it asks /api/coloring-download, which
+    //     re-checks with Stripe that THIS session was paid AND that it actually
+    //     contained the add-on, then redirects to the file. That way the site
+    //     never hands the packet to someone who did not buy it.
+    // =====================================================================
+    function downloadColoringPacket(kind) {
+      if (kind !== 'letter' && kind !== 'a4') return;
+      const sid = new URLSearchParams(window.location.search).get('session_id');
+      if (!sid) {
+        showError('We could not find your purchase. Open this page from the link in your receipt.');
+        return;
+      }
+      const btn = document.getElementById(kind === 'a4' ? 'coloring-a4-btn' : 'coloring-letter-btn');
+      const original = btn ? btn.innerHTML : '';
+      const link = document.createElement('a');
+      link.href = `${API_BASE}/api/coloring-download?session_id=${encodeURIComponent(sid)}&kind=${encodeURIComponent(kind)}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      track('coloring_packet_downloaded', { kind });
+      if (btn) {
+        btn.innerHTML = 'SAVED ✓';
+        setTimeout(() => { btn.innerHTML = original; }, 2500);
+      }
     }
 
     // =====================================================================
@@ -1976,7 +2046,7 @@
         // reset to 'a'. Result: a buyer who picked the parchment design was
         // handed the orbital one. Read the real key, and normalise it so an
         // unexpected value can never reach the renderer as a broken template.
-        const { noradId, type, stat, exName, customMessage, emojiOverlay, certificateTemplate, mailTier } = result.metadata;
+        const { noradId, type, stat, exName, customMessage, emojiOverlay, coloringAddon, certificateTemplate, mailTier } = result.metadata;
         const template = certificateTemplate === 'b' ? 'b' : 'a';
         lastCertData = { noradId, type, stat, exName, customMessage, emojiOverlay, template, mailTier };
 
@@ -2003,6 +2073,15 @@
           mailNote.style.display = 'block';
         } else {
           mailNote.style.display = 'none';
+        }
+
+        // The coloring packet is a PAID add-on, so it is revealed only when the
+        // verified session says it was actually bought. It is hidden by default
+        // in the markup — a $2.99 buyer must never see a $3.99 download link.
+        // `coloringAddon` arrives as the string 'true' (see api/verify-session.js).
+        const coloringBlock = document.getElementById('coloring-pack-block');
+        if (coloringBlock) {
+          coloringBlock.style.display = coloringAddon === 'true' ? 'block' : 'none';
         }
 
         track('checkout_completed', { noradId, value: result.amountTotal != null ? result.amountTotal / 100 : undefined });

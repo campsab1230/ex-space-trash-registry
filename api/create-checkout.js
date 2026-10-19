@@ -47,6 +47,15 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const EMOJI_ADDON_PRICE = 1.99;
 
+// Printable coloring packet — a genuine ADD-ON, not a bundle total.
+//   $3.99 -> ~$0.42 Stripe fee -> 10.4% of revenue, which is BETTER than the
+//   $2.99 digital certificate (12.9%) because the fixed $0.30 is spread over a
+//   larger amount. That is the opposite trade to the old $1.99 emoji add-on
+//   (18%), so this one is safe to sell on its own.
+// Sold as a digital download only. Nothing ships, so no postage is bundled in
+// and lowering/raising the printed tiers does not affect this price.
+const COLORING_ADDON_PRICE = 3.99;
+
 // Flat digital price. Every orbit costs the same; the orbit no longer sets the
 // price. Must match BASE_PRICE in certificate-app.html.
 const BASE_PRICE = 2.99;
@@ -100,7 +109,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, mailTier, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, coloringAddon, certificateTemplate, mailTier, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -119,6 +128,7 @@ export default async function handler(req, res) {
     const cleanTemplate = (certificateTemplate === 'b') ? 'b' : 'a';
 
     const wantsEmojiAddon = emojiAddon === true;
+    const wantsColoringAddon = coloringAddon === true;
 
     // Allow-list the tier. Anything unrecognised becomes 'none', so a tampered
     // or stale value can never buy a physical copy at the wrong price.
@@ -193,6 +203,19 @@ export default async function handler(req, res) {
         quantity: 1,
       });
     }
+    if (wantsColoringAddon) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Printable Coloring Packet (PDF)',
+            description: '12-page coloring book, US Letter + A4, delivered as an instant download.',
+          },
+          unit_amount: Math.round(COLORING_ADDON_PRICE * 100),
+        },
+        quantity: 1,
+      });
+    }
     if (wantsMail) {
       const isIntl = cleanTier === 'international';
       // PRINTED_PRICES holds the BUNDLE TOTAL. Charge only the difference here,
@@ -239,6 +262,9 @@ export default async function handler(req, res) {
         exName: cleanName,
         customMessage: cleanMessage,
         emojiOverlay: cleanEmoji,
+        // String, not boolean — Stripe metadata is string-only, and the
+        // success page reads it back to decide whether to reveal the download.
+        coloringAddon: wantsColoringAddon ? 'true' : 'false',
         certificateTemplate: cleanTemplate,
         // Tier name, not a boolean — Stripe metadata is string-only and we need
         // to know which postage class to use when packing the envelope.
