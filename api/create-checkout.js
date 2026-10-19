@@ -47,19 +47,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const PENDING_CLAIM_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const EMOJI_ADDON_PRICE = 1.99;
 
-// Gift delivery. An ADD-ON, not a bundle total: the buyer always keeps their own
-// digital certificate, and this buys the extra service of us emailing a copy to
-// a recipient they name. Priced above the certificate itself because the work is
-// real — deliverability, abuse handling and support — while the marginal cost of
-// a single send is near zero. Must match EMAIL_ADDON_PRICE in certificate-app.html.
-//
-// This is the one part of the funnel that sends mail to someone who did not ask
-// for it, so it is deliberately constrained: ONE email per purchase (enforced by
-// a UNIQUE index on the session id), the named recipient is the only address we
-// ever write to, the buyer cannot author the body, and every message carries an
-// opt-out. See api/stripe-webhook.js for the send and migrations/004.
-const EMAIL_ADDON_PRICE = 4.99;
-
 // Flat digital price. Every orbit costs the same; the orbit no longer sets the
 // price. Must match BASE_PRICE in certificate-app.html.
 const BASE_PRICE = 2.99;
@@ -113,7 +100,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, mailTier, userEmail, emailGift, recipientEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, certificateTemplate, mailTier, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -140,24 +127,6 @@ export default async function handler(req, res) {
     const cleanEmoji = wantsEmojiAddon
       ? Array.from(String(emojiOverlay || '').replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069<>&"']/gu, '')).slice(0, 4).join('')
       : '';
-
-    // Gift delivery. The client sends a boolean and an address; neither is
-    // trusted. If the add-on is selected we REQUIRE a plausible recipient and
-    // refuse the sale without one, because the buyer would otherwise be charged
-    // $4.99 for a send that can never happen. Rejecting is the honest failure
-    // here — silently downgrading to a digital-only order would take the money
-    // and keep the fee for a service we never rendered.
-    const wantsGiftEmail = emailGift === true;
-    const rawRecipient = String(recipientEmail || '').trim().toLowerCase();
-    // Deliberately conservative: one @, a dot in the domain, no whitespace, and
-    // no characters that matter for header injection. We do not try to be
-    // RFC-complete — a wrong-but-syntactic address simply bounces at the
-    // provider, which is a cheaper failure than a regex that rejects real ones.
-    const RECIPIENT_RE = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]{2,}$/;
-    if (wantsGiftEmail && (rawRecipient.length > 254 || !RECIPIENT_RE.test(rawRecipient))) {
-      return res.status(400).json({ error: 'Please enter a valid email address for the gift delivery.' });
-    }
-    const cleanRecipient = wantsGiftEmail ? rawRecipient : '';
 
     // The client's only job is to name the tier. It sends the flat base price
     // as a sanity signal; the real amount is derived below and never trusted
@@ -224,19 +193,6 @@ export default async function handler(req, res) {
         quantity: 1,
       });
     }
-    if (wantsGiftEmail) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: 'Gift delivery — we email the certificate for you',
-            description: 'A one-off email sent on your behalf to the address you gave. Your own digital certificate is included separately.',
-          },
-          unit_amount: Math.round(EMAIL_ADDON_PRICE * 100),
-        },
-        quantity: 1,
-      });
-    }
     if (wantsMail) {
       const isIntl = cleanTier === 'international';
       // PRINTED_PRICES holds the BUNDLE TOTAL. Charge only the difference here,
@@ -289,13 +245,6 @@ export default async function handler(req, res) {
         mailTier: cleanTier,
         purchaseType: wantsMail ? 'printed' : 'digital',
         basePrice: String(BASE_PRICE),
-        // Gift delivery. `recipientEmail` is the address the BUYER typed for the
-        // recipient — never the buyer's own, and never used as a login or an
-        // identity. Duplicated here as well as in the DB so a missing migration
-        // cannot lose a delivery already paid for: the webhook can still read
-        // the address straight out of Stripe metadata.
-        giftEmail: wantsGiftEmail ? 'true' : 'false',
-        recipientEmail: cleanRecipient,
       },
       // Stripe collects and validates the postal address itself, and the
       // address arrives on the webhook as session.shipping_details. We never

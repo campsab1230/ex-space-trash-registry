@@ -71,20 +71,19 @@ have.
 The registry wall lists claims. A "recently claimed in the last 24h" strip on the
 homepage gives returning visitors a reason to look again.
 
-### 6. Gift mode (send to a friend) — ✅ BUILT
-*"Email the certificate to your ex for you."* Turns a private joke into a
-delivered surprise — and the delivery email is a built-in viral loop.
+### 6. Gift mode (send to a friend)
+*"Pay a few dollars and we'll email the certificate to them for you."* Turns a
+private joke into a delivered surprise — and the delivery email is a built-in
+viral loop. Needs an email provider (Resend has a usable free tier).
 
-**Shipped as a $4.99 add-on.** The buyer names a recipient, we send one email
-with the certificate and a link to the object. Requires an email provider —
-Resend, behind `RESEND_API_KEY` + a verified `GIFT_EMAIL_FROM` domain.
-
-**Open question (unresolved):** the original sketch was "send it to your *ex*",
-which means we send to a person the buyer may be estranged from. The built
-version is deliberately broader — the recipient is whoever the buyer names, so
-it also works as a gift to a *friend*. That is the safer framing and it is what
-the terms are written against. Re-narrowing it to "your ex" would need the abuse
-review doing again.
+**Built and then removed.** A $4.99 version shipped and was pulled at the
+owner's call: mailing a third party is the wrong kind of feature for this
+product, however carefully it is bounded. If it is ever revisited, the two
+things that killed it are worth remembering — it is the only flow that contacts
+someone who did not ask to hear from us, and it needs a verified sending domain,
+an abuse story, and a monitored opt-out address to be run responsibly. See git
+history (`5713bdf`) for the implementation, including the one-send-per-purchase
+constraint and the opt-out.
 
 ### 7. Certificate personalisation extras
 - Upload a photo of the ex to appear on the certificate (needs R2/S3 storage).

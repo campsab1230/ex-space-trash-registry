@@ -38,38 +38,31 @@ check('client reads `certificateTemplate` (the real key name)',
 
 // --- 2b. property ACCESS, not just destructuring ---
 //
-// THE GAP THIS CLOSES. Everything above only inspects keys the client pulls out
-// via `const { ... } = result.metadata`. But the client can just as easily read
-// `result.metadata.giftEmail` — and that form was completely unchecked, so when
-// verify-session.js forgot to return `giftEmail`, the success screen's
-// `result.metadata.giftEmail === 'true'` was permanently `undefined`, the gift
-// confirmation never rendered, and a buyer who paid $4.99 for the add-on was
-// shown no acknowledgement of it at all. No error. No failing test.
+// Everything above only inspects keys the client pulls out via
+// `const { ... } = result.metadata`. The client can just as easily read
+// `result.metadata.someKey`, and that form was previously unchecked — which is
+// exactly how a real bug slipped through: verify-session.js failed to return a
+// key the client read by property access, so the client silently saw
+// `undefined` and a paid feature went unacknowledged. No error, no failing test.
 //
-// An untyped JSON handoff does not care HOW the client reads a key. So collect
+// An untyped JSON handoff does not care HOW the client reads a key, so collect
 // every `result.metadata.<key>` access and require the server to provide each.
+//
+// This section is currently INERT: after the gift-delivery feature was removed,
+// the client reads metadata only via destructuring, so `accessedKeys` is empty
+// and the loop below has nothing to check. That is stated rather than asserted,
+// because a "must not be vacuous" assertion here would fail on a perfectly
+// correct codebase and pressure the next person into adding a dummy access to
+// satisfy it. The mechanism stays so that the moment a property access IS
+// introduced, it is covered automatically.
 const accessedKeys = [...idx.matchAll(/result\.metadata\.([a-zA-Z][a-zA-Z0-9]*)/g)].map(m=>m[1]);
-console.log('client accesses metadata.', [...new Set(accessedKeys)].join(', ') || '(none)');
-for (const k of new Set(accessedKeys)) {
+const uniqueAccessed = [...new Set(accessedKeys)];
+console.log('client accesses metadata.',
+  uniqueAccessed.length ? uniqueAccessed.join(', ') : '(none — destructuring only; this section is inert)');
+for (const k of uniqueAccessed) {
   check(`client accesses metadata.${k} and server provides it`, serverKeys.includes(k),
         `<- server has: ${serverKeys.join(', ')}`);
 }
-// Guard the guard: if the client stops reading metadata by property access at
-// all, this section silently stops testing anything.
-check('at least one metadata property access is checked (guard is not vacuous)',
-      new Set(accessedKeys).size > 0);
-
-// --- 2c. every gift key the success screen needs must survive the handoff ---
-// Named explicitly because this is the exact pair that broke: the add-on is
-// recorded at checkout, sent by the webhook, and confirmed via verify-session —
-// three separate files, and the confirmation only works if this one key is
-// echoed back.
-check('verify-session returns giftEmail (or the gift confirmation silently never shows)',
-      serverKeys.includes('giftEmail'));
-check('giftEmail is normalised to the string the client compares against',
-      /giftEmail:\s*session\.metadata\?\.giftEmail === 'true' \? 'true' : 'false'/.test(vses));
-check('verify-session does NOT echo the recipient address back to the browser',
-      !/recipientEmail:\s*session\.metadata/.test(vses));
 
 // --- 3. top-level keys ---
 for (const k of ['paid','registered','amountTotal']) {

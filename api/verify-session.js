@@ -50,23 +50,6 @@ export default async function handler(req, res) {
         mailTier: ['domestic', 'international'].includes(session.metadata?.mailTier)
           ? session.metadata.mailTier
           : 'none',
-        // Was the gift delivery bought? Normalised to the strings 'true'/'false'
-        // because Stripe metadata is string-only and the success screen compares
-        // against 'true'.
-        //
-        // This key was MISSING, and the failure was silent in the worst way: the
-        // success screen reads `result.metadata.giftEmail`, so it was always
-        // `undefined`, so the "the email to them is on its way" confirmation
-        // never appeared. A buyer paid $4.99 for the gift add-on and was shown
-        // no acknowledgement of it — they would reasonably assume it had not
-        // been bought. Nothing errored, and no test covered it, because the
-        // contracts guard only inspected destructured keys, not property access.
-        giftEmail: session.metadata?.giftEmail === 'true' ? 'true' : 'false',
-        // NOTE: the recipient's ADDRESS is deliberately not returned. The
-        // browser already has it (the buyer typed it) and the success screen
-        // does not need it, so echoing an address back through an endpoint that
-        // takes a session id is unnecessary exposure.
-        //
         // Only sent back so the success screen can confirm the plan. The actual
         // address stays in Stripe; it is never returned to the browser or stored.
         shipToCountry: (session.shipping_details && session.shipping_details.address && session.shipping_details.address.country) || null,

@@ -18,10 +18,6 @@
 # from the open internet, and every file added to those folders is published by
 # default unless someone remembers to think about it.
 #
-# DO NOT ADD 'lib/' TO THIS FILE. api/stripe-webhook.js imports
-# lib/gift-email.js; excluding it breaks the gift delivery at runtime, and the
-# failure is silent — a 500 in a webhook path nobody watches.
-#
 # DO NOT ADD 'package.json' OR 'package-lock.json'. Vercel needs them to install
 # the runtime dependencies for the api/ functions (stripe,
 # @supabase/supabase-js, @vercel/og). Excluding them breaks every endpoint.
@@ -35,7 +31,7 @@ FUNNEL.md
 FEATURE-ROADMAP.md
 
 # Database schema. Not secret, but no reason to publish the shape of the
-# customer tables — including the new gift_emails recipient addresses.
+# customer tables.
 migrations/
 
 # Test suite. Publishing it also hands over exactly which invariants are
