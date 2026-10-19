@@ -56,6 +56,21 @@ const EMOJI_ADDON_PRICE = 1.99;
 // and lowering/raising the printed tiers does not affect this price.
 const COLORING_ADDON_PRICE = 3.99;
 
+// Breakup Survival Manual — the second paid digital add-on, and a BIGGER book
+// than the coloring packet (15 pages vs 12).
+//   $4.99 -> ~$0.44 Stripe fee -> 8.9% of revenue.
+// WHY $4.99 AND NOT $5.99, since both were on the table:
+//   The coloring packet sets an implicit per-page price of $3.99 / 12 =
+//   $0.3325. At $4.99 the manual lands at $4.99 / 15 = $0.3327 — the SAME
+//   value per page, so the two products cannot be compared unfavourably. At
+//   $5.99 the same 15 pages cost 20% more per page than the book the customer
+//   is looking at on the same screen, which is the kind of inconsistency that
+//   reads as a price hike rather than a bigger product. The fee difference
+//   between the two is only $0.06, so fee efficiency does not decide this;
+//   ladder consistency does. It also keeps the price ladder monotonic and
+//   under the $5 impulse threshold: $2.99 -> $3.99 -> $4.99.
+const MANUAL_ADDON_PRICE = 4.99;
+
 // Flat digital price. Every orbit costs the same; the orbit no longer sets the
 // price. Must match BASE_PRICE in certificate-app.html.
 const BASE_PRICE = 2.99;
@@ -109,7 +124,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, coloringAddon, certificateTemplate, mailTier, userEmail } = req.body || {};
+    const { noradId, type, stat, exName, customMessage, price, emojiAddon, emojiOverlay, coloringAddon, manualAddon, certificateTemplate, mailTier, userEmail } = req.body || {};
 
     if (!noradId || !type || !exName || !price) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -129,6 +144,7 @@ export default async function handler(req, res) {
 
     const wantsEmojiAddon = emojiAddon === true;
     const wantsColoringAddon = coloringAddon === true;
+    const wantsManualAddon = manualAddon === true;
 
     // Allow-list the tier. Anything unrecognised becomes 'none', so a tampered
     // or stale value can never buy a physical copy at the wrong price.
@@ -216,6 +232,19 @@ export default async function handler(req, res) {
         quantity: 1,
       });
     }
+    if (wantsManualAddon) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'The Ex-SpaceTrash Breakup Survival Manual (PDF)',
+            description: '15-page printable survival + coloring manual, US Letter + A4, delivered as an instant download.',
+          },
+          unit_amount: Math.round(MANUAL_ADDON_PRICE * 100),
+        },
+        quantity: 1,
+      });
+    }
     if (wantsMail) {
       const isIntl = cleanTier === 'international';
       // PRINTED_PRICES holds the BUNDLE TOTAL. Charge only the difference here,
@@ -265,6 +294,9 @@ export default async function handler(req, res) {
         // String, not boolean — Stripe metadata is string-only, and the
         // success page reads it back to decide whether to reveal the download.
         coloringAddon: wantsColoringAddon ? 'true' : 'false',
+        // Same string-not-boolean rule as coloringAddon. api/manual-download.js
+        // gates on exactly the string 'true'.
+        manualAddon: wantsManualAddon ? 'true' : 'false',
         certificateTemplate: cleanTemplate,
         // Tier name, not a boolean — Stripe metadata is string-only and we need
         // to know which postage class to use when packing the envelope.

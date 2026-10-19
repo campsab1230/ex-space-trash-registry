@@ -51,6 +51,10 @@ export default async function handler(req, res) {
         // the comparison silently false and the paid download would never
         // appear. (Same failure shape as the certificateTemplate bug.)
         coloringAddon: session.metadata?.coloringAddon === 'true' ? 'true' : 'false',
+        // Same normalisation, same reason. This is the failure that matters:
+        // a real boolean here compares unequal to the string 'true' in the
+        // client, so the buyer pays $4.99 and the download never appears.
+        manualAddon: session.metadata?.manualAddon === 'true' ? 'true' : 'false',
         certificateTemplate: session.metadata?.certificateTemplate,
         mailTier: ['domestic', 'international'].includes(session.metadata?.mailTier)
           ? session.metadata.mailTier

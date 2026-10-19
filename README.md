@@ -276,6 +276,8 @@ node tests/check-discovery.mjs      # sitemap unshadowed, JSON-LD prices match c
 node tests/check-entry-flow.mjs     # homepage → app → post-checkout is connected
 node tests/check-sticker-pack.mjs   # pack exists, is linked, is tracked, is disclosed
 node tests/check-coloring-packet.mjs # paid add-on: gated, priced, revealed, tracked
+node tests/check-breakup-manual.mjs # second paid add-on: same, plus a separate gate
+node tests/check-inline-js.mjs      # every inline <script> actually parses
 ```
 
 They exist because the bugs that actually cost money here are **silent**:
@@ -357,7 +359,7 @@ They exist because the bugs that actually cost money here are **silent**:
   claim's card is immutable for a year, but a fallback card must expire in
   minutes or a link shared mid-purchase pins a blank preview on that object.
 
-All ten exit non-zero on failure, so they can gate a deploy.
+All twelve exit non-zero on failure, so they can gate a deploy.
 
 > **Why the og-image guard strips comments before asserting.** The file's own
 > header comment names the old `claims` / `custom_name` bug, so a naive grep
@@ -508,6 +510,125 @@ why `coloringAddon` is normalised to the **string** `'true'` in
 `=== 'true'` comparison quietly false, which is the exact bug that once shipped
 with `certificateTemplate`. The guard pins both the string type and the hidden-by-
 default markup, so a $2.99 buyer can never be shown a $3.99 download.
+
+---
+
+## The breakup survival manual ($4.99 paid add-on)
+
+An optional **15-page printable survival + coloring manual**, offered as its own
+checkbox at checkout and delivered in the same post-purchase success modal. Paid
+and gated, exactly like the coloring packet — but a **separate product with a
+separate gate**, not a second option on the first one.
+
+| Asset | Path | Size |
+|---|---|---|
+| US Letter PDF | `assets/manual/breakup-manual-letter.v07f67f240c301.pdf` | 3,481,372 B |
+| A4 PDF | `assets/manual/breakup-manual-a4.vc3c352981b151.pdf` | 3,656,575 B |
+
+**15 pages each**: the cover plus 14 interior pages, on the correct page geometry
+(Letter 612×792 pt, A4 595×842 pt). Every page is **1-bit** — pure black lines on
+white, no grey, no anti-aliasing halo, no halftone.
+
+### Why the masters were vectorized instead of regenerated
+
+The supplied masters are **765×1024 px = 2.55×3.41 in at 300 dpi**. A US Letter
+page needs 2550×3300, so they are far below print resolution. Two options existed:
+
+- **(a) regenerate** all 15 pages with an image model, or
+- **(b) vectorize** the existing masters.
+
+**(a) was rejected.** The written content *is* the product — "RE-ENTRY CHECKLIST:
+BECOMING A PERSON AGAIN", "Songs that need to be temporarily banned", "Things I
+miss / Things I actually miss". A regenerated page comes back with *different
+words*, which is not the book that was written. Regenerating would have quietly
+destroyed the thing being sold.
+
+**(b) was measured, not assumed.** potrace snaps the fuzzy upscaled edges to clean
+curves. An A/B/C render of *original vs Lanczos-upscale vs vector* showed the
+vector version is the **crispest of the three** — hard-edged strokes, no halo.
+
+> **An OCR test was run first and thrown away.** The obvious way to test text
+> preservation is to count words tesseract recovers. It reported the *original* at
+> only 10/17 known phrases, failing words that are plainly legible on screen
+> ("showered", "dressed"), because tesseract cannot read hand-lettered line art.
+> A metric that scores the ground truth at 59% is not measuring anything useful.
+> The rendered pixels are the authoritative evidence here.
+
+A useful side effect: the Otsu threshold **discards colour**. Six masters carry
+colour (03 4.08%, 14 5.82%, 05 0.49%, 02 0.20%, 13 0.06%, 15 0.09%), so no
+separate desaturation pass was needed.
+
+### Detail-loss QC
+
+The real risk of thresholding is not "is it smoother", it is "did a **thin line**
+fall below the threshold and vanish". So every page is diffed against a plain
+Lanczos upscale and ink **lost** and **added** are reported. Measured on the real
+masters: worst loss **0.110%** (`11-orbital-debris-field`, the dark one),
+everything else 0.001–0.023%. Nothing is being eaten.
+
+### Two build defects caught before shipping
+
+1. **RGBA transparency.** `rsvg-convert` emits RGBA with a *transparent*
+   background. Handing that to reportlab prints the book **black**, and
+   `convert('RGB')`/`convert('L')` renders transparency as black too — that exact
+   bug produced a fully black QC contact sheet during development. Every page is
+   composited onto white first.
+2. **Grey after resample.** The first build came out at **17.17 MB** per book,
+   ~10× the coloring packet, because resampling crisp vector art with LANCZOS
+   *re-introduces* grey anti-aliasing and stores 8-bit. Snapping back to pure
+   black/white after the resize restored the hard edges and dropped it to
+   **3.32 MB**, since a 1-bit page has almost no entropy to compress.
+
+### Why $4.99 and not $5.99
+
+Both were on the table. The coloring packet sets an implicit per-page price of
+**$3.99 / 12 = $0.3325**. At **$4.99** the manual lands at **$4.99 / 15 =
+$0.3327** — the *same* value per page, so the two products cannot be compared
+unfavourably by a customer looking at both on the same screen. At $5.99 the same
+15 pages cost **20% more per page** than the book next to it, which reads as a
+price hike rather than a bigger product.
+
+The fee difference is only **$0.06** ($4.99 → 8.9% of revenue vs $5.99 → 7.9%),
+so fee efficiency does not decide this. **Ladder consistency does**: the prices
+stay monotonic and under the $5 impulse threshold — $2.99 → $3.99 → $4.99.
+
+### Why it is gated, and why it is a *separate* gate
+
+Same reasoning as the coloring packet: it costs money, so the site must not hand
+it to someone who did not pay. The success screen **does not know where the PDF
+lives** — it calls `/api/manual-download?session_id=…&kind=…`, which re-checks
+with Stripe that the session is `paid` **and** that its metadata says
+`manualAddon === 'true'`, then redirects. An allow-list maps `kind` to a file, so
+the parameter cannot be walked to another path.
+
+**It is deliberately not merged with `api/coloring-download.js`.** One endpoint
+keyed by a `product` param would mean a single typo in that param could hand the
+$4.99 book to a $3.99 buyer. Two small files that each check exactly one flag are
+easier to be sure about, and `check-breakup-manual.mjs` asserts the separation
+both ways: the manual gate must not accept `coloringAddon`, and the coloring gate
+must not accept `manualAddon`.
+
+**Honest scope limit.** Identical to the coloring packet's: this stops the *site*
+from serving the file to a non-payer. It does not make the static path
+unreachable by someone who already has the URL — the PDFs still live in the
+deployed static tree. Making them truly private means keeping them out of the
+static tree entirely, which is a deployment-shape change and was deliberately not
+done here.
+
+### The failure that matters is silent
+
+`manualAddon` is normalised to a `'true'`/`'false'` **string** in
+`api/verify-session.js`, never a real boolean. A boolean would compare unequal to
+the client's `=== 'true'` check, so a buyer pays $4.99 and the download simply
+never appears — no error anywhere. The guard pins the string form.
+
+The guard also pins that `wantsManualAddon` is **declared** in
+`api/create-checkout.js`. It was referenced-but-undeclared once during
+development, which is a `ReferenceError` at request time that 500s checkout for
+**every** customer, not just manual buyers. `node --check` cannot catch that — it
+is a scope error, not a syntax error. Both defects were found by these guards,
+and both guards were verified non-vacuous by re-injecting the defect and
+confirming a non-zero exit.
 
 ---
 
