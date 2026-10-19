@@ -1,0 +1,77 @@
+# tools/ci/ci-test-workflow.yml
+#
+# THIS FILE IS NOT ACTIVE. It is the workflow that should live at
+# .github/workflows/test.yml. Copy the part below the `---` line there.
+#
+# WHY IT IS PARKED HERE
+#   The GitHub App used to push this repo does not carry the `workflows`
+#   permission, so any push touching .github/workflows/ is rejected by GitHub:
+#
+#     refusing to allow a GitHub App to create or update workflow
+#     `.github/workflows/test.yml` without `workflows` permission
+#
+#   That is a platform-level scope on the App token, not something the sandbox
+#   can grant itself, so the file cannot be delivered by an automated push.
+#
+# TO ACTIVATE IT
+#   1. GitHub web UI: Add file -> Create new file -> name it exactly
+#      `.github/workflows/test.yml` -> paste everything below the `---` line.
+#   2. Or reconnect the GitHub App with the `workflows` scope, then:
+#        mkdir -p .github/workflows
+#        sed -n '/^---$/,$p' tools/ci/ci-test-workflow.yml | tail -n +2 \
+#          > .github/workflows/test.yml
+#        git add .github/workflows/test.yml && git commit -m "ci: activate guards"
+#
+# Nothing else is waiting on this. The suite it runs is already committed and
+# passing locally (11 guards, 183 checks). Activating it only adds an automatic
+# red X on a broken push, so the gap it closes is convenience, not correctness.
+#
+# ---
+name: guards
+
+# Vercel has no build step and never runs the test suite, so nothing has ever
+# stopped a broken change from reaching production. This runs the same guards
+# you run locally, on every push and pull request.
+#
+# There is deliberately NO `npm install` step. Every guard in tests/ imports
+# only Node built-ins (fs, path, os, child_process) and reads the project's
+# files as text, so the suite runs with ZERO installed dependencies. That makes
+# this workflow fast, hermetic, and impossible to break with a registry hiccup —
+# which matters, because a flaky gate is a gate people learn to ignore.
+#
+# If a guard ever genuinely needs a dependency, add the install step THEN —
+# not pre-emptively, or this stops being hermetic for no benefit.
+#
+# SCOPE, stated honestly: this gives you a red X and a notification on the
+# commit. It does NOT by default prevent Vercel from deploying, because Vercel
+# deploys on push independently of GitHub checks. To make it blocking, turn off
+# Vercel's auto-deploy for `main` and trigger deploys from this workflow's
+# success instead. As shipped, it tells you a change is broken within a minute
+# rather than at 3am when someone checks out.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Versions
+        run: node --version && npm --version
+
+      - name: Run the guard suite
+        run: npm test
