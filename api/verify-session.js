@@ -22,7 +22,9 @@ export default async function handler(req, res) {
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
-    const paid = session.payment_status === 'paid';
+    // A $0 (fully coupon-discounted) session reports 'no_payment_required',
+    // not 'paid' — it is still a completed order and must unlock downloads.
+    const paid = session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
 
     const { data } = await supabase
       .from('global_registry')
