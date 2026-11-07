@@ -284,6 +284,8 @@ export default async function handler(req, res) {
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: lineItems,
+      // Show the promotion-code box so Stripe coupons (FREETRASH, WANTEDSPACE) can be redeemed.
+      allow_promotion_codes: true,
       metadata: {
         noradId: noradIdStr,
         type: cleanType,
