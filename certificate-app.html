@@ -1667,7 +1667,12 @@
       // Prefer something nobody has bought yet, so a first-time buyer is not
       // dropped straight onto a LOCKED object.
       const unclaimed = trashPieces.filter(m => !liveGlobalRegistry[m.userData.noradId]);
-      const pool = unclaimed.length ? unclaimed : trashPieces;
+      // Prefer an object with a real catalog name (COSMOS / FENGYUN / IRIDIUM
+      // debris). A certificate that reads "UNIDENTIFIED OBJECT" is honest but
+      // looks broken, so unidentified analyst tracks are only the fallback
+      // when nothing named is available.
+      const named = unclaimed.filter(m => !/^(unidentified|unknown)/i.test(m.userData.type || ''));
+      const pool = named.length ? named : (unclaimed.length ? unclaimed : trashPieces);
       return pool[Math.floor(Math.random() * pool.length)].userData;
     }
 
