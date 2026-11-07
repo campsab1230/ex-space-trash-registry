@@ -33,16 +33,18 @@ const LEO_DEBRIS_GROUPS = [
 //  - 'analyst': CelesTrak's uncorrelated/unidentified tracked object catalog,
 //    spans every altitude band and is thematically perfect ("unidentified
 //    debris") — nothing in it is operational infrastructure.
-//  - 'geo': the geosynchronous belt. This one DOES include active,
-//    operational satellites, so we filter those out below (OPS_STATUS_CODE)
-//    to avoid ever letting someone "claim" a live comms/weather satellite.
-const HIGH_ALTITUDE_GROUPS = ['analyst', 'geo'];
+//  - 'geo' is deliberately NOT used. It was here originally, guarded by an
+//    OPS_STATUS_CODE filter — but the GP element feed this endpoint reads
+//    does not carry OPS_STATUS_CODE (or OBJECT_TYPE) at all; those live in
+//    the SATCAT, not the element sets. The filter was therefore checking an
+//    always-undefined field and passing everything, which put LIVE
+//    satellites (Intelsat, TDRS, SES payloads) into the claimable pool.
+//    Until a SATCAT-backed status check exists, the geosynchronous belt
+//    stays out: a customer must never be able to "claim" a live satellite.
+const HIGH_ALTITUDE_GROUPS = ['analyst'];
 
 const ALL_GROUPS = [...LEO_DEBRIS_GROUPS, ...HIGH_ALTITUDE_GROUPS];
 
-// Operational status codes CelesTrak uses that mean "this is a live,
-// in-service satellite" — never surface these from the 'geo' group.
-const OPERATIONAL_STATUS_CODES = new Set(['+', 'P', 'B', 'S']);
 
 const EARTH_RADIUS_KM = 6371;
 const EARTH_MU = 398600.4418; // km^3/s^2
@@ -74,6 +76,15 @@ function recoverAltFromStat(stat) {
   return parseInt(match[1].replace(/,/g, ''), 10);
 }
 
+// CelesTrak's analyst group names every object literally "UNKNOWN" — that is
+// the catalog's word for an uncorrelated track, but on a certificate it reads
+// as a bug ("was assigned UNKNOWN"). Display those honestly as unidentified.
+function displayNameFor(o) {
+  const name = String((o && o.OBJECT_NAME) || '').trim();
+  if (!name || /^unknown$/i.test(name)) return 'UNIDENTIFIED OBJECT';
+  return name;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
@@ -103,14 +114,10 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'Could not reach CelesTrak' });
     }
 
-    // Never surface a currently-operational satellite as "claimable trash" —
-    // only applies to the 'geo' group, since 'analyst' and the debris groups
-    // are inherently non-operational by definition.
-    const safeObjects = allObjects.filter(o => {
-      if (o.sourceGroup !== 'geo') return true;
-      const status = o.OPS_STATUS_CODE;
-      return !status || !OPERATIONAL_STATUS_CODES.has(status);
-    });
+    // Every group still in ALL_GROUPS is debris or uncorrelated tracks by
+    // definition, so no per-object operational filter is needed (and the GP
+    // feed carries no status field to filter on — see HIGH_ALTITUDE_GROUPS).
+    const safeObjects = allObjects;
 
     const withAltitude = safeObjects
       .filter(o => typeof o.MEAN_MOTION === 'number' && o.MEAN_MOTION > 0 && o.NORAD_CAT_ID)
@@ -153,7 +160,7 @@ export default async function handler(req, res) {
 
     const processed = sample.map(o => ({
       noradId: o.NORAD_CAT_ID,
-      officialName: o.OBJECT_NAME || 'Unidentified Object',
+      officialName: displayNameFor(o),
       altKm: o.altKm,
       regime: o.regime,
       tierLabel: (o.sourceGroup || 'debris').replace(/-/g, ' ').toUpperCase()
@@ -190,7 +197,11 @@ export default async function handler(req, res) {
       if (liveMatch) {
         processed.push({
           noradId: liveMatch.NORAD_CAT_ID,
-          officialName: liveMatch.OBJECT_NAME || row.debris_name || 'Unidentified Object',
+          officialName: (() => {
+            const liveName = displayNameFor(liveMatch);
+            if (liveName !== 'UNIDENTIFIED OBJECT') return liveName;
+            return (row.debris_name && !/^unknown$/i.test(row.debris_name)) ? row.debris_name : liveName;
+          })(),
           altKm: liveMatch.altKm,
           regime: liveMatch.regime,
           tierLabel: (liveMatch.sourceGroup || 'debris').replace(/-/g, ' ').toUpperCase()
