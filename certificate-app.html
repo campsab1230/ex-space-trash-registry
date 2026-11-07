@@ -564,7 +564,7 @@
         <div id="sticker-pack-block" style="border-color: rgba(78,242,210,.28); border-style: dashed; border-width: 1px; border-radius: 10px; padding: 12px 14px; margin: 18px 0 12px;">
             <p style="color:#8ab4f8; font-size:0.78rem; margin:0 0 10px; line-height:1.5;">
                 <strong style="color:#4ef2d2;">🧻 INCLUDED WITH EVERY ORDER</strong><br>
-                The crew, as a sticker pack — 5 die-cut stickers with cut guides. Print at home, or use the transparent PNGs in chats.
+                The crew, as a sticker pack — 9 die-cut stickers with cut guides. Print at home, or use the transparent PNGs in chats.
             </p>
             <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
                 <button id="sticker-pdf-letter-btn" onclick="downloadStickerPack('letter')" style="flex:1 1 130px; background:transparent; border:1px solid #4ef2d2; color:#4ef2d2; padding:9px; font-size:0.78rem; cursor:pointer;">🖨️ PDF SHEET<br><span style="opacity:.75; font-size:0.7rem;">US Letter</span></button>
@@ -1850,45 +1850,200 @@
     // =====================================================================
     // 8c. STICKER PACK — included with every order, all tiers, no gate.
     //
-    //     Deliberately a plain static download rather than a token-protected
-    //     endpoint: this is a freebie, so gating it would protect zero revenue
-    //     while adding a DB lookup and a support surface if a buyer ever wants
-    //     to re-download. A permanent, predictable URL means they always can.
-    //
-    //     Two sheet sizes because the site sells internationally ($29.99 tier):
-    //     a US Letter-only sheet is wrong for an A4 buyer.
+    //     v2 (Nov 2026): the pack is the whole crew now — 9 die-cut stickers
+    //     (Nova, Bolt, Miso, Hamlet, Pico, Sprout, Inky, Pillow + Laika).
+    //     The PNG art travels as base64 in three lazy-loaded data files
+    //     (assets/stickers/sticker-data-1..3.js); the ZIP of PNGs and the
+    //     Letter/A4 PDF sheets are built right here in the browser when a
+    //     buyer taps a button. If anything in that path fails, we fall back
+    //     to the original static files, so the freebie can never hard-break.
     // =====================================================================
     const STICKER_PACK_FILES = {
       letter: '/assets/stickers/sticker-pack-letter.pdf',
       a4:     '/assets/stickers/sticker-pack-a4.pdf',
       png:    '/assets/stickers/sticker-pack-png.zip'
     };
+    const STICKER_README = "ExSpaceTrash Sticker Pack - transparent PNGs\n==============================================\n\n9 stickers: the whole crew - Nova, Bolt, Miso, Hamlet, Pico,\nSprout, Inky and Pillow - plus Laika, Honorary Crew Member No. 0.\nFull resolution, transparent background, die-cut white borders.\nUse them in chats, on your desktop, or drop them into any image app.\n\nPersonal use. Characters and artwork belong to ExSpaceTrash.com\n(a novelty service - no real debris was harmed).\n\nPrinted sheets (Letter + A4, 300 dpi, with cut guides) are included\nwith every order at exspacetrash.com\n";
 
-    function downloadStickerPack(kind) {
-      const src = STICKER_PACK_FILES[kind];
-      if (!src) return;
+    // --- tiny store-only ZIP writer + single-page PDF writer -------------
+    const StickerLib = (function () {
+      var CRC_TABLE = null;
+      function crc32(bytes) {
+        if (!CRC_TABLE) {
+          CRC_TABLE = new Int32Array(256);
+          for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC_TABLE[n] = c; }
+        }
+        var crc = -1;
+        for (var i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 255];
+        return (crc ^ -1) >>> 0;
+      }
+      function u16(v) { return [v & 255, (v >>> 8) & 255]; }
+      function u32(v) { return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]; }
+      function strBytes(s) { var a = []; for (var i = 0; i < s.length; i++) a.push(s.charCodeAt(i) & 255); return a; }
+      function buildZip(files) {
+        var out = [], central = [], offset = 0, date = 0x5F27, time = 0x2000;
+        files.forEach(function (f) {
+          var name = strBytes(f.name), crc = crc32(f.bytes), size = f.bytes.length;
+          var local = [].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(time), u16(date), u32(crc), u32(size), u32(size), u16(name.length), u16(0));
+          out.push(new Uint8Array(local), new Uint8Array(name), f.bytes);
+          central.push({ name: name, crc: crc, size: size, offset: offset });
+          offset += local.length + name.length + size;
+        });
+        var cdStart = offset;
+        central.forEach(function (c) {
+          var rec = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(time), u16(date), u32(c.crc), u32(c.size), u32(c.size), u16(c.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(c.offset));
+          out.push(new Uint8Array(rec), new Uint8Array(c.name));
+          offset += rec.length + c.name.length;
+        });
+        out.push(new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(offset - cdStart), u32(cdStart), u16(0))));
+        var total = out.reduce(function (a, b) { return a + b.length; }, 0);
+        var zip = new Uint8Array(total), p = 0;
+        out.forEach(function (chunk) { zip.set(chunk, p); p += chunk.length; });
+        return zip;
+      }
+      function buildPdf(kind, images) {
+        var page = kind === 'a4' ? { w: 595, h: 842 } : { w: 612, h: 792 };
+        var margin = 36, topOff = 74, botOff = 40;
+        var cellW = (page.w - margin * 2) / 3, cellH = (page.h - topOff - botOff) / 3;
+        var cs = '';
+        function txt(str, size, x, yTop, r, g, b) {
+          cs += 'BT /F1 ' + size + ' Tf ' + r + ' ' + g + ' ' + b + ' rg 1 0 0 1 ' + x + ' ' + (page.h - yTop).toFixed(1) + ' Tm (' + str.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)') + ') Tj ET\n';
+        }
+        txt('EXSPACETRASH - FREE STICKER PACK', 19, margin + (page.w - margin * 2 - 305) / 2, 46, 0.05, 0.09, 0.19);
+        txt('The whole crew - 9 die-cut stickers - included with every order', 10.5, margin + (page.w - margin * 2 - 268) / 2, 66, 0.05, 0.55, 0.5);
+        images.forEach(function (im, i) {
+          var cx = margin + (i % 3) * cellW, cyTop = topOff + Math.floor(i / 3) * cellH;
+          var s = Math.min((cellW - 44) / im.w, (cellH - 44) / im.h);
+          var iw = im.w * s, ih = im.h * s;
+          var x = cx + (cellW - iw) / 2, yTop = cyTop + (cellH - ih) / 2, y = page.h - yTop - ih;
+          cs += 'q 0.72 g 0.7 w [6 4] 0 d ' + (x - 7).toFixed(1) + ' ' + (y - 7).toFixed(1) + ' ' + (iw + 14).toFixed(1) + ' ' + (ih + 14).toFixed(1) + ' re S Q\n';
+          cs += 'q ' + iw.toFixed(1) + ' 0 0 ' + ih.toFixed(1) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ' cm /Im' + i + ' Do Q\n';
+        });
+        txt('Print on sticker paper - or plain paper, cut on the dashed line, and glue. Personal use - art (c) ExSpaceTrash.com', 8.5, margin + 26, page.h - 14, 0.43, 0.47, 0.55);
+        var bodies = {};
+        bodies[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+        bodies[2] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
+        var res = '<< /Font << /F1 5 0 R >> /XObject <<';
+        images.forEach(function (_, i) { res += ' /Im' + i + ' ' + (6 + i) + ' 0 R'; });
+        res += ' >> /ProcSet [/PDF /Text /ImageC] >>';
+        bodies[3] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + page.w + ' ' + page.h + '] /Resources ' + res + ' /Contents 4 0 R >>';
+        bodies[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+        var nObj = 5 + images.length, chunks = [], offsets = new Array(nObj + 1), pos = 0;
+        function push(data) { var b = typeof data === 'string' ? new Uint8Array(strBytes(data)) : data; chunks.push(b); pos += b.length; }
+        push('%PDF-1.3\n');
+        for (var n = 1; n <= nObj; n++) {
+          offsets[n] = pos;
+          if (n === 4) { push('4 0 obj\n<< /Length ' + cs.length + ' >>\nstream\n'); push(cs); push('\nendstream\nendobj\n'); }
+          else if (n >= 6) { var im2 = images[n - 6]; push(n + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + im2.w + ' /Height ' + im2.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + im2.jpeg.length + ' >>\nstream\n'); push(im2.jpeg); push('\nendstream\nendobj\n'); }
+          else { push(n + ' 0 obj\n' + bodies[n] + '\nendobj\n'); }
+        }
+        var xrefPos = pos, xref = 'xref\n0 ' + (nObj + 1) + '\n0000000000 65535 f \n';
+        for (var m = 1; m <= nObj; m++) xref += ('0000000000' + offsets[m]).slice(-10) + ' 00000 n \n';
+        push(xref);
+        push('trailer\n<< /Size ' + (nObj + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF');
+        var total = chunks.reduce(function (a, b) { return a + b.length; }, 0);
+        var pdf = new Uint8Array(total), q = 0;
+        chunks.forEach(function (c) { pdf.set(c, q); q += c.length; });
+        return pdf;
+      }
+      return { buildZip: buildZip, buildPdf: buildPdf };
+    })();
+
+    let stickerDataPromise = null;
+    function loadStickerData() {
+      if (!stickerDataPromise) {
+        stickerDataPromise = [1, 2, 3].reduce(function (chain, n) {
+          return chain.then(function () {
+            return new Promise(function (resolve, reject) {
+              const s = document.createElement('script');
+              s.src = '/assets/stickers/sticker-data-' + n + '.js';
+              s.onload = resolve; s.onerror = reject;
+              document.head.appendChild(s);
+            });
+          });
+        }, Promise.resolve()).then(function () {
+          const data = (window.STICKER_DATA || []).slice().sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+          if (data.length !== 9) throw new Error('sticker data incomplete');
+          return data;
+        });
+      }
+      return stickerDataPromise;
+    }
+    function stickerPngBytes(entry) {
+      const bin = atob(entry.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+    function stickerJpeg(entry) {
+      return new Promise(function (resolve, reject) {
+        const url = URL.createObjectURL(new Blob([stickerPngBytes(entry)], { type: 'image/png' }));
+        const img = new Image();
+        img.onload = function () {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(function (blob) {
+              if (!blob) { reject(new Error('jpeg encode failed')); return; }
+              blob.arrayBuffer().then(function (buf) {
+                resolve({ jpeg: new Uint8Array(buf), w: canvas.width, h: canvas.height });
+              }, reject);
+            }, 'image/jpeg', 0.88);
+          } catch (e) { reject(e); }
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+    function saveStickerBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = filename;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    }
+
+    async function downloadStickerPack(kind) {
       const btn = document.getElementById(
         kind === 'png' ? 'sticker-png-btn'
         : kind === 'a4' ? 'sticker-pdf-a4-btn'
         : 'sticker-pdf-letter-btn'
       );
       if (!btn) return;
-
       const original = btn.innerHTML;
-      const link = document.createElement('a');
-      link.href = src;
-      link.download = src.split('/').pop();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      track('sticker_pack_downloaded', { kind });
-      btn.innerHTML = 'SAVED ✓';
+      btn.innerHTML = 'BUILDING…';
+      try {
+        const data = await loadStickerData();
+        if (kind === 'png') {
+          const files = data.map(function (e) { return { name: e.name, bytes: stickerPngBytes(e) }; });
+          files.push({ name: 'READ-ME.txt', bytes: new TextEncoder().encode(STICKER_README) });
+          saveStickerBlob(new Blob([StickerLib.buildZip(files)], { type: 'application/zip' }), 'sticker-pack-png.zip');
+        } else {
+          const images = [];
+          for (const e of data) images.push(await stickerJpeg(e));
+          saveStickerBlob(new Blob([StickerLib.buildPdf(kind, images)], { type: 'application/pdf' }), 'sticker-pack-' + kind + '.pdf');
+        }
+        track('sticker_pack_downloaded', { kind });
+        btn.innerHTML = 'SAVED ✓';
+      } catch (err) {
+        const src = STICKER_PACK_FILES[kind];
+        if (src) {
+          const link = document.createElement('a');
+          link.href = src; link.download = src.split('/').pop();
+          document.body.appendChild(link); link.click(); link.remove();
+          track('sticker_pack_downloaded', { kind });
+          btn.innerHTML = 'SAVED ✓';
+        }
+      }
       setTimeout(() => { btn.innerHTML = original; }, 2500);
     }
 
     // =====================================================================
-    // 9a-bis. COLORING PACKET — a PAID add-on, so unlike the free sticker
+// 9a-bis. COLORING PACKET — a PAID add-on, so unlike the free sticker
     //     pack above this is NOT a plain static link. The success screen has no
     //     idea where the PDF lives; it asks /api/coloring-download, which
     //     re-checks with Stripe that THIS session was paid AND that it actually
