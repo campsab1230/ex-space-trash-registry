@@ -64,8 +64,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true }); // ack so Stripe doesn't retry forever
     }
 
-    // Do not grant a claim for an unpaid session.
-    if (session.payment_status !== 'paid') {
+    // Do not grant a claim for an unpaid session. A fully coupon-discounted
+    // ($0) session completes as 'no_payment_required', not 'paid' — that is
+    // still a completed order (e.g. a FREETRASH redemption), so grant it.
+    if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
       console.log('Session not paid — ignoring', session.id, session.payment_status);
       return res.status(200).json({ received: true, ignored: 'unpaid' });
     }
